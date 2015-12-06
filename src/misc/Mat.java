@@ -14,6 +14,17 @@ public class Mat {
 		return a;
 	}
 	
+	public static Matrix ones(int rows, int columns){
+		Matrix m = new Matrix(rows, columns);
+		for(int i = 0; i < rows; i++){
+			for(int j = 0; j < columns; j++){
+				m.set(i, j, 1);
+			}
+		}
+		
+		return m;
+	}
+	
 	public static Matrix addBotMatrix(Matrix a, Matrix b){
 		Matrix c = new Matrix(a.getRowDimension() + b.getRowDimension(), a.getColumnDimension());
 		for(int i = 0; i < a.getRowDimension(); i++){

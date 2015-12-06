@@ -3,18 +3,28 @@ package main;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringReader;
+import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
 
 import Jama.Matrix;
 import NN.NeuralNetwork;
 import misc.Mat;
+import misc.Snake;
 
 public class Main {
+	static String trafficLightWeights="tf.txt";
+	static String trafficLightDir="C:\\Users\\s-xuch\\Pictures\\Traffic Lights";
+
 	public static void main(String[] args){
-		trafficLights("C:\\Users\\s-xuch\\Pictures\\Traffic Lights");
+		Snake.main(args);
 	}
 	
 	private static Matrix[] trafficLights(String dir){
@@ -39,28 +49,36 @@ public class Main {
 		reds = red.listFiles();
 		yellows = yellow.listFiles();
 		greens = green.listFiles();
-		for(int r = 0; r < 1; r++){
+		for(int r = 0; r < reds.length; r++){
 			X = addExample(X, convertImage(reds[r].getAbsolutePath()));
 			y = addExample(y, createExample(0, 3));
 		}
-		for(int r = 0; r < 1; r++){
+		for(int r = 0; r < yellows.length; r++){
 			X = addExample(X, convertImage(yellows[r].getAbsolutePath()));
 			y = addExample(y, createExample(1, 3));
 		}
-		for(int r = 0; r < 0; r++){
+		for(int r = 0; r < greens.length; r++){
 			X = addExample(X, convertImage(greens[r].getAbsolutePath()));
 			y = addExample(y, createExample(2, 3));
 		}
+//		NeuralNetwork.testGradient();
+//		System.exit(0);
 		
-		Matrix[] theta = new Matrix[5];
-		theta[0] = Matrix.random(X.getColumnDimension() + 1, 25);
-		theta[1] = Matrix.random(26,25);
-		theta[2] = Matrix.random(26,25);
-		theta[3] = Matrix.random(26,25);
-		theta[4] = Matrix.random(26,3);
-		theta = NeuralNetwork.trainNN(X, theta, y, 0.03, 0, 1000);
+		Matrix[] theta = new Matrix[2];
+		theta[0] = Matrix.random(X.getColumnDimension() + 1, 50);
+		theta[1] = Matrix.random(51,3);
+		theta = NeuralNetwork.trainNN(X, theta, y, 0.1, 0, 100);
+		try{
+			NeuralNetwork.write(theta, trafficLightWeights);
+		}
+		catch(IOException e){
+			e.printStackTrace();
+		}
+		Matrix p = NeuralNetwork.predict(X, theta, 1);
+		p.print(1, 3);
 		return theta;
 	}
+	
 	
 	private static Matrix createExample(int option, int totalOptions){
 		Matrix y = new Matrix(totalOptions, 1);
@@ -70,11 +88,6 @@ public class Main {
 	
 	private static Matrix addExample(Matrix X, Matrix x){
 		Matrix buffer = new Matrix(X.getRowDimension() + 1, X.getColumnDimension());
-		/*
-		buffer.setMatrix(0, X.getRowDimension() - 1, 0, X.getColumnDimension() - 1, X);
-		Matrix j = x.transpose();
-		buffer.setMatrix(X.getRowDimension(), X.getRowDimension(),0, x.getColumnDimension()-1, x.transpose());
-		*/
 		buffer = Mat.addBotMatrix(X, x.transpose());
 		return buffer;
 	}

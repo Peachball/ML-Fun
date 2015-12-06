@@ -1,5 +1,15 @@
 package NN;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+
+import org.apache.commons.io.FileUtils;
+
 import Jama.Matrix;
 import misc.Mat;
 import regression.LogisticRegression;
@@ -21,7 +31,7 @@ public class NeuralNetwork {
 				;
 			a = Mat.add1sColumn(a); // Add bias unit
 		}
-		a = Mat.remove1stColumn(a);
+		a = Mat.remove1stColumn(a); // Remove bias unit
 		return a;
 	}
 	
@@ -54,7 +64,7 @@ public class NeuralNetwork {
 			grad[i] = delta[i].transpose().times(a[i]).transpose();
 			for(int j = 0; j < grad[i].getRowDimension(); j++){
 				for(int k = 1; k < grad[i].getColumnDimension(); k++){
-					grad[i].set(j, k, theta[i].get(j, k) * lambda);
+					grad[i].set(j, k, grad[i].get(j, k) + theta[i].get(j, k) * lambda);
 				}
 			}
 			grad[i] = grad[i].times(1.0 / X.getRowDimension());
@@ -75,7 +85,7 @@ public class NeuralNetwork {
 		for(int i = 0; i < theta.length; i++){
 			for(int a = 1; a < theta[i].getRowDimension(); a++){
 				for(int b = 0; b < theta[i].getColumnDimension(); b++){
-					reg += theta[i].get(a,b) * lambda / 2.0 / m;
+					reg += theta[i].get(a,b) * theta[i].get(a, b) * lambda / 2.0 / m;
 				}
 			}
 		}
@@ -92,10 +102,83 @@ public class NeuralNetwork {
 			}
 			System.out.println(J(X, theta, y, lambda));
 		}
-		return null;
+		return theta;
+	}
+
+	public static void write(Matrix[] m, String file) throws IOException{
+		PrintWriter writer = new PrintWriter(new FileWriter(file));
+		writer.print("");
+		writer.close();
+		for(int i = 0; i < m.length; i++){
+			PrintWriter out = new PrintWriter(new FileWriter(file, true));
+			out.println("Matrix " + i);
+			m[i].print(out, 1, 10);
+			out.close();
+		}
 	}
 	
-	public static void testGradient(Matrix X, Matrix grad, Matrix theta, Matrix y){
+	public static Matrix[] read(File file) throws IOException{
+		if(file.isDirectory()){
+			throw new IOException("Can't split directories");
+		}
+		File temp = new File("temp");
+		if(temp.exists()){
+			int i = 0;
+			while(temp.exists()){
+				temp = new File("temp" + i);
+				i++;
+			}
+		}
+		temp.mkdir();
+
+		BufferedReader in = new BufferedReader(new FileReader(file));
+		String name = in.readLine();
+		while((name) != null){
+			PrintWriter out = new PrintWriter(new FileWriter(temp.getPath() + File.separator + name));
+			String buffer;
+			while((buffer = in.readLine()) != null){
+				if(buffer.contains("Matrix")){
+					break;
+				}
+				out.println(buffer);
+			}
+			out.close();
+			name = buffer;
+		}
 		
+		ArrayList<Matrix> m = new ArrayList<Matrix>();
+		File[] files = temp.listFiles();
+		for(int i = 0; i < files.length; i++){
+			BufferedReader reader = new BufferedReader(new FileReader(files[i]));
+			m.add(Matrix.read(reader));
+			reader.close();
+		}
+		in.close();
+		FileUtils.deleteDirectory(temp);
+		
+
+		return m.toArray(new Matrix[m.size()]);
+	}
+	
+	public static void testGradient(Matrix X, Matrix y){
+		double epsilon = 0.0001;
+		Matrix[] theta1 = new Matrix[1];
+		theta1[0] = Mat.ones(X.getColumnDimension() + 1, y.getColumnDimension());
+		theta1[0].set(0, 0, 1+epsilon);
+		Matrix[] theta2 = new Matrix[1];
+		theta2[0] = Mat.ones(X.getColumnDimension() + 1, y.getColumnDimension());
+		theta2[0].set(0, 0, 1-epsilon);
+
+		double testGrad = J(X, theta1, y, 0) - J(X, theta2, y, 0);
+		testGrad = testGrad / 2 / epsilon;
+		Matrix[] test3 = new Matrix[1];
+		test3[0] = Mat.ones(X.getColumnDimension() + 1, y.getColumnDimension());
+		Matrix[] ograd = grad(X, test3, y);
+		System.out.println(ograd[0].get(0, 0) + " vs " + testGrad);
+		System.out.println(ograd[0].get(0, 0) - testGrad);
+	}
+	
+	public static void testGradient(){
+		testGradient(Matrix.random(3, 6), Matrix.random(3, 2));
 	}
 }
