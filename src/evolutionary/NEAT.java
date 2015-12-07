@@ -139,14 +139,15 @@ public class NEAT {
 			links.add(l2);
 		}
 
+		@Deprecated
 		public Matrix predict(Matrix X) throws Exception {
 			if (X.getColumnDimension() != inputSize) {
 				throw new Exception("This genome is not made for that size");
 			}
 			for(int i = inputSize + 1; i <= inputSize + outputSize; i++){
-				
 			}
 			clearValues();
+			return null;
 		}
 		
 		private double obtainSum(Node n) throws Exception{
