@@ -2,17 +2,28 @@ package evolutionary;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.Queue;
 
 import Jama.Matrix;
 
 public class NEAT {
-	public double deltaThreshold;
+	public double deltaThreshold = 3;
 	public double randomInitMean = 0;
 	public double randomInitRange = 5;
 	public double stepSize = 1;
 	public double excessImportance = 1;
 	public double disjointImportance = 1;
 	public double weightImportance = 1;
+	public ArrayList<Genome> genePool;
+	
+	public NEAT(){
+		genePool = new ArrayList<Genome>();
+	}
+	
+	public void reproduce(){
+		
+	}
 
 	class Link {
 		public int startNode;
@@ -35,16 +46,14 @@ public class NEAT {
 			return l;
 		}
 
-		@Deprecated
-		public void mutate() {
-
+		public void mutate(double stepSize) {
+			this.weight = Math.random() * stepSize - 1.0 / 2 * stepSize;
 		}
 	}
 
 	class Node implements Comparable<Node> {
 		public ArrayList<Link> incoming = new ArrayList<Link>();
 		public int id;
-		public double curValue = 0;
 
 		public Node(ArrayList<Link> incoming, int id) {
 			for (int i = 0; i < incoming.size(); i++) {
@@ -106,7 +115,7 @@ public class NEAT {
 
 		@Override
 		public Genome clone() {
-			Genome newGenome = new Genome(nodes,numOfNodes, inputSize, outputSize);
+			Genome newGenome = new Genome(nodes, numOfNodes, inputSize, outputSize);
 			return newGenome;
 		}
 
@@ -114,10 +123,11 @@ public class NEAT {
 		 * Adds a node randomly, and the i1 and i2 are innovation numbers for
 		 * each link
 		 * 
+		 * Can only split open a link
 		 * @param i1
 		 * @param i2
 		 */
-		public void addNode(int i1, int i2) {
+		public void addNode(int i1, int i2){
 			numOfNodes++;
 			int l = (int) Math.random() * links.size();
 			links.get(l).enabled = false;
@@ -138,42 +148,54 @@ public class NEAT {
 			links.add(l1);
 			links.add(l2);
 		}
+		
+		public void addLink(int node1, int node2, int innovationNumber) throws Exception{
+			Link l = new Link(node1, node2, 0, innovationNumber);
+			Node n = getNode(node2);
+			n.addLink(l);
+		}
 
-		@Deprecated
 		public Matrix predict(Matrix X) throws Exception {
 			if (X.getColumnDimension() != inputSize) {
 				throw new Exception("This genome is not made for that size");
 			}
-			for(int i = inputSize + 1; i <= inputSize + outputSize; i++){
+			Matrix y = new Matrix(X.getRowDimension(), X.getColumnDimension());
+			for (int ex = 0; ex < X.getRowDimension(); ex++) {
+				double[] nodeValues = new double[numOfNodes + 1];
+				boolean[] set = new boolean[numOfNodes+1];
+				Queue<Node> f = new LinkedList<Node>();
+				for (int i = 1; i <= inputSize; i++) {
+					nodeValues[i] = X.get(0, i - 1);
+				}
+				for (int i = inputSize + 1; i <= inputSize + outputSize; i++) {
+					f.add(getNode(i));
+				}
+				while (!f.isEmpty()) {
+					double sum = 0;
+					Node buffer = f.poll();
+					//Iterate through all links to sum up things
+					for(Link n : buffer.incoming){
+						if(!set[n.startNode]){
+							f.add(getNode(n.startNode));
+						}
+						else{
+						}
+					}
+					set[buffer.id] = true;
+				}
+				for(int i = inputSize + 1; i <= inputSize + outputSize; i++){
+					y.set(ex, i - inputSize - 1, nodeValues[i]);
+				}
 			}
-			clearValues();
-			return null;
+			return y;
 		}
-		
-		private double obtainSum(Node n) throws Exception{
-			if(n.curValue != 0){
-				return n.curValue;
-			}
-			double sum = 0;
-			for(int i = 0; i < n.incoming.size(); i++){
-				sum += obtainSum(getNode(n.incoming.get(i).startNode)) * n.incoming.get(i).weight;
-			}
-			return sum;
-		}
-		
-		private void clearValues(){
-			for(int i = 0; i < nodes.size(); i++){
-				nodes.get(i).curValue = 0;
-			}
-		}
-		
-		private Node getNode(int id) throws Exception{
+
+		private Node getNode(int id) throws Exception {
 			Collections.sort(nodes);
 			int index = Collections.binarySearch(nodes, new Node(id));
-			if(index == -1){
+			if (index == -1) {
 				throw new Exception("Unable to find node");
-			}
-			else{
+			} else {
 				return nodes.get(index);
 			}
 		}
@@ -192,6 +214,18 @@ public class NEAT {
 				}
 				nodes.add(i, n);
 			}
+		}
+		
+		@Deprecated
+		public void mutate(){
+			//Determine whether or not to add a node
+			//Determine what percentage of links to mutate
+		}
+		
+		@Deprecated
+		public double distance(Genome g){
+			
+			return 0;
 		}
 	}
 

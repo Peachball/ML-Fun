@@ -65,4 +65,18 @@ public class LogisticRegression {
 		return sigmoid(X.times(theta));
 	}
 	
+	/*
+	public static Matrix featureNormalize(double mean, double range){
+		
+	}
+	
+	public static double findMean(Matrix X){
+		Matrix x = new Matrix(1, X.getRowDimension());
+		
+	}
+	
+	public static double findDeviation(Matrix X){
+		
+	}
+	*/
 }
