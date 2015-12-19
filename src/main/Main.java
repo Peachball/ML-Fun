@@ -22,9 +22,10 @@ import misc.Snake;
 public class Main {
 	static String trafficLightWeights="tf.txt";
 	static String trafficLightDir="C:\\Users\\s-xuch\\Pictures\\Traffic Lights";
+	static int finePeter = 250;
 
 	public static void main(String[] args){
-		Snake.main(args);
+		NeuralNetwork.testGradient();
 	}
 	
 	private static Matrix[] trafficLights(String dir){
@@ -32,7 +33,7 @@ public class Main {
 		File[] files = d.listFiles();
 		File red, yellow, green;
 		red = yellow = green = null;
-		Matrix X = new Matrix(0, 250 * 250 * 3);
+		Matrix X = new Matrix(0, finePeter * finePeter * 3);
 		Matrix y = new Matrix(0, 3);
 		for(int i = 0; i < files.length; i++){
 			if(files[i].isDirectory() && files[i].getName().contentEquals("red")){
@@ -64,9 +65,10 @@ public class Main {
 //		NeuralNetwork.testGradient();
 //		System.exit(0);
 		
-		Matrix[] theta = new Matrix[2];
-		theta[0] = Matrix.random(X.getColumnDimension() + 1, 50);
-		theta[1] = Matrix.random(51,3);
+		Matrix[] theta = new Matrix[3];
+		theta[0] = Matrix.random(X.getColumnDimension() + 1, 100);
+		theta[1] = Matrix.random(101,100);
+		theta[2] = Matrix.random(101,3);
 		theta = NeuralNetwork.trainNN(X, theta, y, 0.1, 0, 100);
 		try{
 			NeuralNetwork.write(theta, trafficLightWeights);
@@ -78,7 +80,6 @@ public class Main {
 		p.print(1, 3);
 		return theta;
 	}
-	
 	
 	private static Matrix createExample(int option, int totalOptions){
 		Matrix y = new Matrix(totalOptions, 1);
@@ -95,7 +96,7 @@ public class Main {
 	private static Matrix convertImage(String image){
 		try{
 		File im = new File(image);
-		Image bu = ImageIO.read(im).getScaledInstance(250, 250, Image.SCALE_DEFAULT);
+		Image bu = ImageIO.read(im).getScaledInstance(finePeter, finePeter, Image.SCALE_DEFAULT);
 		BufferedImage bi = new BufferedImage(bu.getWidth(null),bu.getHeight(null),BufferedImage.TYPE_INT_ARGB);
 		Graphics g = bi.createGraphics();
 		g.drawImage(bu,0,0,null);

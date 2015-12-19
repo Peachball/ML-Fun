@@ -161,7 +161,7 @@ public class NeuralNetwork {
 	}
 	
 	public static void testGradient(Matrix X, Matrix y){
-		double epsilon = 0.0001;
+		double epsilon = 0.00000001;
 		Matrix[] theta1 = new Matrix[1];
 		theta1[0] = Mat.ones(X.getColumnDimension() + 1, y.getColumnDimension());
 		theta1[0].set(0, 0, 1+epsilon);

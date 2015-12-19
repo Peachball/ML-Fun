@@ -40,6 +40,9 @@ public class Snake {
 					nextDir = i + 1;
 				}
 			}
+			if(display){
+				display(board);
+			}
 			int s = nextIteration(board, nextDir);
 			if(s < 0){
 				return -s;
