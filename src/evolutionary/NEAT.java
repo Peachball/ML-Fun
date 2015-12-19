@@ -12,7 +12,7 @@ public class NEAT {
 	public double stepSize = 1;
 	public double excessImportance = 1;
 	public double disjointImportance = 1;
-	public double weightImportance = 1;
+	public double weightImportance = 0.4;
 
 	class Link {
 		public int startNode;
