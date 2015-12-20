@@ -22,7 +22,7 @@ public class Snake {
 	public static void main(String[] args) throws NEATException {
 		int boardX, boardY;
 		boardX = boardY = 10;
-		NEAT ne = new NEAT(3 * boardX * boardY, 4, (Genome g) -> F(g, boardX, boardY, true , 0));
+		NEAT ne = new NEAT(3 * boardX * boardY, 4, (Genome g) -> F(g, boardX, boardY, true, 0));
 		while(true){
 			ne.reproduce();
 		}
@@ -54,13 +54,9 @@ public class Snake {
 				return 0;
 			}
 			if (display) {
-				try {
-					Thread.sleep(speed);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
 				StdDraw.clear();
 				display(board);
+				StdDraw.show(speed);
 			}
 			int s = nextIteration(board, nextDir);
 			if (s < 0) {
@@ -76,8 +72,8 @@ public class Snake {
 			} else {
 				idleTime++;
 			}
-			if (idleTime > 50) {
-				System.out.println("Didn't get the apple enough...");
+			if (idleTime > (x * y / 2)) {
+//				System.out.println("Didn't get the apple enough...With " + status + " Points");
 				return status;
 			}
 		}
