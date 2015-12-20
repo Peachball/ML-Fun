@@ -11,26 +11,54 @@ public class NEAT {
 	public double deltaThreshold = 3;
 	public double randomInitMean = 0;
 	public double randomInitRange = 5;
-	public double stepSize = 1;
+	public double stepSize = 4;
 	public double excessImportance = 1;
 	public double disjointImportance = 1;
 	public double weightImportance = 0.4;
 	public double linkMutateChance = 0.5;
 	public int currentInnovation = 1;
-	public double addLinkChance = 0.1;
+	public double addLinkChance = 0.3;
 	public double addNodeChance = 0.1;
 	public ArrayList<Genome> genePool;
+	public int inputSize = 0;
+	public int outputSize = 0;
+	public int stableGenePoolSize = 10;
+	public int maxGenePoolSize = 30;
+	public FitnessFunction f;
 
-	public NEAT() {
+	public NEAT(int inputSize, int outputSize, FitnessFunction f) {
 		genePool = new ArrayList<Genome>();
+		this.inputSize = inputSize;
+		this.outputSize = outputSize;
+		genePool.add(new Genome());
+		this.f = f;
 	}
 
-	@Deprecated
+	/**
+	 * We start off simple, and we go more complicated later
+	 */
 	public void reproduce() {
-
+		for (int j = 0; j < genePool.size(); j++) {
+			Genome g = genePool.get(j);
+			for (int i = 0; i < maxGenePoolSize / stableGenePoolSize - 1; i++) {
+				Genome newG = g.clone();
+				try {
+					newG.mutate();
+				} catch (NEATException e) {
+					e.printStackTrace();
+				}
+				newG.fitness = f.getFitness(newG);
+				genePool.add(0, newG);
+				j++;
+			}
+		}
+		if (genePool.size() > stableGenePoolSize) {
+			Collections.sort(genePool);
+			genePool.subList(0, genePool.size() - stableGenePoolSize).clear();
+		}
 	}
 
-	class Link implements Comparable<Link> {
+	public class Link implements Comparable<Link> {
 		public int startNode;
 		public int endNode;
 		public double weight;
@@ -82,7 +110,7 @@ public class NEAT {
 		}
 	}
 
-	class Node implements Comparable<Node> {
+	public class Node implements Comparable<Node> {
 		public ArrayList<Link> incoming = new ArrayList<Link>();
 		public int id;
 
@@ -125,75 +153,75 @@ public class NEAT {
 
 	}
 
-	class Genome {
-		public ArrayList<Node> nodes;
-		public ArrayList<Link> links;
-		public int numOfNodes = 0; // Total number of nodes, so that
-		public int inputSize;
-		public int outputSize;
+	public class Genome implements Comparable<Genome> {
+		public ArrayList<Node> nodes = new ArrayList<Node>();
+		public ArrayList<Link> links = new ArrayList<Link>();
+		public int numOfNodes;
 		public int maxInnovation;
+		public double fitness;
+		public double distance; // Not used yet
 
 		@Override
 		public Genome clone() {
 			// Copy links
-			Genome g = new Genome(inputSize, outputSize, links);
+			Genome g = new Genome(links);
 			return g;
 		}
 
-		public Genome(int inputSize, int outputSize, ArrayList<Link> l) {
-			nodes = new ArrayList<Node>();
-			links = new ArrayList<Link>();
-			this.numOfNodes = inputSize + outputSize;
-			this.inputSize = inputSize;
-			this.outputSize = outputSize;
-			maxInnovation = 0;
-			for (int i = 0; i < l.size(); i++) {
-				Link a = l.get(i);
-				Link newLink = a.clone();
-				links.add(newLink);
-				Node s = getNode(a.startNode);
-				Node e = getNode(a.endNode);
-				if (a.startNode < inputSize + outputSize) {
-					if (s == null) {
-						s = new Node(newLink.startNode);
-					}
-					s.incoming.add(newLink);
-				}
-				if (a.endNode < inputSize + outputSize) {
-					if (e == null) {
-						e = new Node(newLink.endNode);
-					}
-					e.incoming.add(newLink);
-				}
+		public Genome(ArrayList<?> z) {
+			for (int i = 1; i <= inputSize + outputSize; i++) {
+				nodes.add(new Node(i));
 			}
+			if (z.isEmpty()) {
+				numOfNodes = inputSize + outputSize;
+				maxInnovation = 0;
+			} else if (z.get(0) instanceof Link) {
+				ArrayList<Link> l = (ArrayList<Link>) z;
+				maxInnovation = 0;
+				for (int i = 0; i < l.size(); i++) {
+					Link a = l.get(i);
+					Link newLink = a.clone();
+					links.add(newLink);
+					Node s = getNode(a.startNode);
+					Node e = getNode(a.endNode);
+					if (newLink.innovationNumber > maxInnovation) {
+						maxInnovation = newLink.innovationNumber;
+					}
+					if (a.startNode < inputSize + outputSize) {
+						if (s == null) {
+							s = new Node(newLink.endNode);
+						}
+						s.incoming.add(newLink);
+						if(numOfNodes < newLink.startNode)
+							numOfNodes = newLink.startNode;
+					}
+					if (a.endNode < inputSize + outputSize) {
+						if (e == null) {
+							e = new Node(newLink.endNode);
+						}
+						e.incoming.add(newLink);
+					}
+				}
+			} else if (z.get(0) instanceof Node) {
+				ArrayList<Node> n = (ArrayList<Node>) z;
+				for (int i = 0; i < n.size(); i++) {
+					Node a = n.get(i).clone();
+					nodes.add(a);
+					for (int j = 0; j < a.incoming.size(); j++) {
+						links.add(a.incoming.get(j));
+					}
+				}
+				maxInnovation = 0;
+			}
+			this.numOfNodes = inputSize + outputSize;
 		}
 
-		/**
-		 * Create a new genome based on the data Will not have any references to
-		 * the old genome
-		 * 
-		 * @param l
-		 * @param n
-		 * @param numOfNodes
-		 */
-		public Genome(ArrayList<Node> n, int inputSize, int outputSize) {
-			nodes = new ArrayList<Node>();
-			links = new ArrayList<Link>();
-			for (int i = 0; i < n.size(); i++) {
-				Node a = n.get(i).clone();
-				nodes.add(a);
-				for (int j = 0; j < a.incoming.size(); j++) {
-					links.add(a.incoming.get(j));
-				}
+		public Genome() {
+			for (int i = 1; i <= inputSize + outputSize; i++) {
+				nodes.add(new Node(i));
 			}
-			this.numOfNodes = inputSize + outputSize;
-			this.inputSize = inputSize;
-			this.outputSize = outputSize;
+			numOfNodes = inputSize + outputSize;
 			maxInnovation = 0;
-		}
-
-		public Genome(int inputSize, int outputSize) {
-			this(new ArrayList<Node>(), inputSize, outputSize);
 		}
 
 		/**
@@ -206,11 +234,14 @@ public class NEAT {
 		 * @param i2
 		 */
 		public void addNode(int i1, int i2) throws NEATException {
+			if (links.isEmpty()) {
+				return;
+			}
 			numOfNodes++;
 			int l = (int) Math.random() * links.size();
 			links.get(l).enabled = false;
 			Link l1 = new Link(links.get(l).startNode, numOfNodes, 1, i1);
-			Link l2 = new Link(numOfNodes, links.get(1).endNode, links.get(l).weight, i2);
+			Link l2 = new Link(numOfNodes, links.get(l).endNode, links.get(l).weight, i2);
 
 			Node a = new Node(numOfNodes);
 			a.addLink(l1);
@@ -232,15 +263,19 @@ public class NEAT {
 		public void addLink(int node1, int node2, int innovationNumber) throws NEATException {
 			Link l = new Link(node1, node2, 0, innovationNumber);
 			Node n = getNode(node2);
+			if(n == null){
+				n = new Node(node2);
+			}
 			n.addLink(l);
+			links.add(l);
 			maxInnovation = innovationNumber > maxInnovation ? innovationNumber : maxInnovation;
 		}
 
-		public Matrix predict(Matrix X) throws Exception {
+		public Matrix predict(Matrix X) throws NEATException {
 			if (X.getColumnDimension() != inputSize) {
-				throw new Exception("This genome is not made for that size");
+				throw new NEATException("This genome is not made for that size");
 			}
-			Matrix y = new Matrix(X.getRowDimension(), X.getColumnDimension());
+			Matrix y = new Matrix(X.getRowDimension(), outputSize);
 			for (int ex = 0; ex < X.getRowDimension(); ex++) {
 				double[] nodeValues = new double[numOfNodes + 1];
 				boolean[] set = new boolean[numOfNodes + 1];
@@ -256,7 +291,7 @@ public class NEAT {
 					double sum = 0;
 					Node buffer = f.poll();
 					// Iterate through all links to sum up things
-					if (set[buffer.id]) {
+					if (set[buffer.id] || buffer == null) {
 						continue;
 					}
 					boolean summed = true;
@@ -269,6 +304,7 @@ public class NEAT {
 						}
 					}
 					if (!summed) {
+						nodeValues[buffer.id] = 0;
 						continue;
 					} else {
 						set[buffer.id] = true;
@@ -285,7 +321,7 @@ public class NEAT {
 		private Node getNode(int id) {
 			Collections.sort(nodes);
 			int index = Collections.binarySearch(nodes, new Node(id));
-			if (index == -1) {
+			if (index < 0) {
 				return null;
 			} else {
 				return nodes.get(index);
@@ -308,38 +344,57 @@ public class NEAT {
 			}
 		}
 
-		@Deprecated
 		public void mutate() throws NEATException {
 			// Determine whether or not to add a node
-			if(addNodeChance > Math.random()){
+			if (addNodeChance > Math.random()) {
 				this.addNode(++currentInnovation, ++currentInnovation);
 			}
 			// Determine what percentage of links to mutate
-			for(Link l : this.links){
-				if(linkMutateChance > Math.random()){
+			for (Link l : this.links) {
+				if (linkMutateChance > Math.random()) {
 					l.mutate(stepSize);
 				}
 			}
-			
-			//Determine whether or not to add a link
-			if(addLinkChance > Math.random()){
+
+			// Determine whether or not to add a link
+			if (!links.isEmpty()) {
+				if (addLinkChance > Math.random()) {
+					int startNode = (int) (Math.random() * numOfNodes + 1);
+					int endNode;
+					if (startNode <= inputSize + outputSize) {
+						if (startNode <= inputSize) {
+							endNode = inputSize + (int) (Math.random() * outputSize + 1);
+						} else {
+							endNode = (int) (Math.random() * inputSize + 1);
+						}
+					} else {
+						while (true) {
+							endNode = (int) (Math.random() * numOfNodes + 1);
+							if (endNode == startNode || isConnected(endNode, startNode)
+									|| isDirConnected(startNode, endNode)) {
+								continue;
+							} else {
+								break;
+							}
+						}
+					}
+					this.addLink(startNode, endNode, ++currentInnovation);
+				}
+			} else {
 				int startNode = (int) (Math.random() * numOfNodes + 1);
 				int endNode;
-				if(startNode <= inputSize + outputSize){
-					if(startNode <= inputSize){
+				if (startNode <= inputSize + outputSize) {
+					if (startNode <= inputSize) {
 						endNode = inputSize + (int) (Math.random() * outputSize + 1);
-					}
-					else{
+					} else {
 						endNode = (int) (Math.random() * inputSize + 1);
 					}
-				}
-				else{
-					while(true){
+				} else {
+					while (true) {
 						endNode = (int) (Math.random() * numOfNodes + 1);
-						if(endNode == startNode || isConnected(endNode, startNode)){
+						if (endNode == startNode || isConnected(endNode, startNode)) {
 							continue;
-						}
-						else{
+						} else {
 							break;
 						}
 					}
@@ -408,29 +463,48 @@ public class NEAT {
 			}
 			return null;
 		}
-		
-		private boolean isConnected(int n1, int n2) throws NEATException{
+
+		private boolean isConnected(int n1, int n2) throws NEATException {
 			Queue<Node> q = new LinkedList<Node>();
 			Node s = getNode(n1);
 			Node e = getNode(n2);
-			if(s == null || e == null){
+			if (s == null || e == null) {
 				return false;
 			}
 			q.add(e);
-			while(!q.isEmpty()){
+			while (!q.isEmpty()) {
 				Node cur = q.poll();
-				if(cur == s){
+				if (cur == s) {
 					return true;
 				}
-				for(Link l : cur.incoming){
+				for (Link l : cur.incoming) {
 					Node add = getNode(l.startNode);
-					if(add == null){
+					if (add == null) {
 						throw new NEATException("isConnected failure (not sure why)");
 					}
 					q.add(getNode(l.startNode));
 				}
 			}
 			return false;
+		}
+
+		private boolean isDirConnected(int n1, int n2) {
+			Node e = getNode(n2);
+			if (e == null) {
+				return false;
+			} else {
+				for (int i = 0; i < e.incoming.size(); i++) {
+					if (n1 == e.incoming.get(i).innovationNumber) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		@Override
+		public int compareTo(Genome o) {
+			return this.fitness < o.fitness ? -1 : 1;
 		}
 	}
 
@@ -444,14 +518,18 @@ public class NEAT {
 		return 1.0 / (1 + Math.pow(Math.E, -4.9 * z));
 	}
 
-	public static double distance(Genome a, Genome b) {
-
-		return 0;
+	public Genome generateRandomGenome() {
+		Genome g = new Genome();
+		return g;
 	}
-}
 
-class NEATException extends Exception {
-	public NEATException(String s) {
-		super(s);
+	public static interface FitnessFunction {
+		public double getFitness(Genome g);
+	}
+
+	public static class NEATException extends Exception {
+		public NEATException(String s) {
+			super(s);
+		}
 	}
 }
