@@ -1,6 +1,11 @@
 package misc;
 
 import java.awt.Color;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 
 import Jama.Matrix;
 import evolutionary.NEAT;
@@ -9,7 +14,7 @@ import evolutionary.NEAT.NEATException;
 
 public class Snake {
 
-	public static int defaultspeed = 0;
+	public static int defaultspeed = 100;
 
 	/**
 	 * Test things here
@@ -17,13 +22,45 @@ public class Snake {
 	 * @param args
 	 * @throws NEATException
 	 */
-	public static void main(String[] args) throws NEATException {
+	public static void main(String[] args) throws NEATException, IOException {
 		int boardX, boardY;
 		boardX = boardY = 5;
-		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, defaultspeed));
-		while(true){
-			ne.reproduce();
+		int numOfTrials = boardX * boardY;
+		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
+		try {
+			ne.loadFromFile("neat.neat");
+			System.out.println("Loaded old NEAT");
+		} catch (IOException e) {
+			System.out.println("Created new NEAT");
 		}
+
+		switch (2) {
+		case 1:
+			// Play top
+			Genome g = ne.getTop();
+			F(g, boardX, boardY, true, defaultspeed, 10);
+			break;
+		case 2:
+			for (int i = 0; i <= 10000; i++) {
+				if (i % 100 == 0) {
+					System.out.println("Saving...Do not close");
+					PrintWriter out = new PrintWriter(new FileWriter("neat.neat"));
+					ne.writeNEAT(out);
+					out.close();
+					System.out.println("Auto saved");
+				}
+				ne.reproduce();
+			}
+			break;
+		}
+	}
+
+	public static double F(Genome theta, int x, int y, boolean display, int speed, int trials) {
+		double sum = 0;
+		for (int i = 0; i < trials; i++) {
+			sum += F(theta, x, y, display, speed);
+		}
+		return sum / trials;
 	}
 
 	public static double F(Genome theta, int x, int y, boolean display, int speed) {
@@ -58,7 +95,7 @@ public class Snake {
 				StdDraw.show(speed);
 			}
 			if (s < 0) {
-				System.out.println("You died with " + (-s) + " points");
+				// System.out.println("You died with " + (-s) + " points");
 				return -s;
 			}
 			if (s > 0) {
@@ -71,7 +108,8 @@ public class Snake {
 				idleTime++;
 			}
 			if (idleTime > (x * y / 2)) {
-//				System.out.println("Didn't get the apple enough...With " + status + " Points");
+				// System.out.println("Didn't get the apple enough...With " +
+				// status + " Points");
 				return status;
 			}
 		}
@@ -158,7 +196,7 @@ public class Snake {
 		spaces = 0;
 		for (int i = 0; i < board.length; i++) {
 			for (int j = 0; j < board[i].length; j++) {
-				if(board[i][j] > 0){
+				if (board[i][j] > 0) {
 					continue;
 				}
 				if (rng - spaces < 1) {
@@ -167,7 +205,7 @@ public class Snake {
 				}
 				spaces++;
 			}
-			if(i == board.length - 1)
+			if (i == board.length - 1)
 				i = 0;
 		}
 	}
@@ -203,11 +241,10 @@ public class Snake {
 		StdDraw.setScale();
 		for (int i = 0; i < board.length; i++) {
 			for (int j = 0; j < board[i].length; j++) {
-				if(board[i][j] > 0){
+				if (board[i][j] > 0) {
 					StdDraw.setPenColor(Color.BLACK);
 					StdDraw.filledRectangle((i + 0.5) / xSize, (j + 0.5) / ySize, 0.5 / xSize, 0.5 / ySize);
-				}
-				else if(board[i][j] < 0){
+				} else if (board[i][j] < 0) {
 					StdDraw.setPenColor(Color.RED);
 					StdDraw.filledRectangle((i + 0.5) / xSize, (j + 0.5) / ySize, 0.5 / xSize, 0.5 / ySize);
 					break;
