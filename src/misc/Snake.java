@@ -22,7 +22,7 @@ public class Snake {
 	public static void main(String[] args) throws NEATException {
 		int boardX, boardY;
 		boardX = boardY = 10;
-		NEAT ne = new NEAT(3 * boardX * boardY, 4, (Genome g) -> F(g, boardX, boardY, true, 0));
+		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false , 0));
 		while(true){
 			ne.reproduce();
 		}
@@ -173,7 +173,7 @@ public class Snake {
 	}
 
 	private static Matrix convert(int[][] board) {
-		Matrix m = new Matrix(3 * board.length * board[0].length, 1);
+		Matrix m = new Matrix(3 * board.length * board[0].length + 1, 1);
 		double xSize = board.length;
 		double ySize = board[0].length;
 		int maxSize = 0;
@@ -193,6 +193,7 @@ public class Snake {
 			}
 		}
 		m.set(3 * (maxX * board[0].length + maxY) + 2, 0, 1);
+		m.set(3 * board.length * board[0].length, 0, 1);
 		return m.transpose();
 	}
 
