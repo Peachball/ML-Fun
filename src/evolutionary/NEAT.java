@@ -15,20 +15,20 @@ import Jama.Matrix;
 public class NEAT {
 	public double randomInitMean = 0;
 	public double randomInitRange = 5;
-	public double minStepSize = 0;
-	public double maxStepSize = 1;
+	public double minStepSize = 5;
+	public double maxStepSize = 10;
 	public double excessImportance = 1;
 	public double disjointImportance = 1;
 	public double weightImportance = 0.4;
 	public double linkMutateChance = 0.25;
 	public int currentInnovation = 1;
-	public double addLinkChance = 0.1;
+	public double addLinkChance = 0.3;
 	public double addNodeChance = 0.1;
 	public ArrayList<Genome> genePool;
 	public int inputSize = 0;
 	public int outputSize = 0;
 	public int stableGenePoolSize = 50;
-	public int maxGenePoolSize = 200;
+	public int maxGenePoolSize = 150;
 	public FitnessFunction f;
 	public int numOfNodes;
 
@@ -53,6 +53,8 @@ public class NEAT {
 	 * We start off simple, and we go more complicated later Need to make it so
 	 * that the code isn't dependent on predefined fitnesses
 	 */
+	private double preBest = 0;
+	private int generation = 0;
 	@Deprecated
 	public void reproduce() {
 		// Get fitnesses
@@ -91,7 +93,11 @@ public class NEAT {
 			g.reproduceChance = g.adjFitness / 2.0;
 		}
 
-		System.out.println("Avg fitness = " + (totalFitness / genePool.size()));
+		if (totalFitness / genePool.size() > preBest) {
+			System.out.println("Avg fitness = " + (totalFitness / genePool.size()));
+			preBest = totalFitness / genePool.size();
+			System.out.println("Generation: " + generation);
+		}
 		while (genePool.size() > stableGenePoolSize) {
 			for (int i = 0; i < genePool.size(); i++) {
 				Genome g = genePool.get(i);
@@ -101,6 +107,7 @@ public class NEAT {
 				}
 			}
 		}
+		generation++;
 	}
 
 	public class Link implements Comparable<Link> {

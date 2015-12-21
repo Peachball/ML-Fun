@@ -4,14 +4,12 @@ import java.awt.Color;
 
 import Jama.Matrix;
 import evolutionary.NEAT;
-import evolutionary.NEAT.FitnessFunction;
 import evolutionary.NEAT.Genome;
 import evolutionary.NEAT.NEATException;
 
 public class Snake {
 
-	public static int defaultspeed = 50;
-	public static int maxIdleTime = 100;
+	public static int defaultspeed = 0;
 
 	/**
 	 * Test things here
@@ -21,8 +19,8 @@ public class Snake {
 	 */
 	public static void main(String[] args) throws NEATException {
 		int boardX, boardY;
-		boardX = boardY = 10;
-		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false , 0));
+		boardX = boardY = 5;
+		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, defaultspeed));
 		while(true){
 			ne.reproduce();
 		}
@@ -53,12 +51,12 @@ public class Snake {
 				e.printStackTrace();
 				return 0;
 			}
+			int s = nextIteration(board, nextDir);
 			if (display) {
 				StdDraw.clear();
 				display(board);
 				StdDraw.show(speed);
 			}
-			int s = nextIteration(board, nextDir);
 			if (s < 0) {
 				System.out.println("You died with " + (-s) + " points");
 				return -s;
@@ -151,12 +149,12 @@ public class Snake {
 		int spaces = 0;
 		for (int i = 0; i < board.length; i++) {
 			for (int j = 0; j < board[i].length; j++) {
-				if (board[i][j] == 1) {
+				if (board[i][j] > 0) {
 					spaces++;
 				}
 			}
 		}
-		double rng = Math.random() * (board.length * board[0].length - spaces);
+		double rng = Math.random() * (board.length * board[0].length - spaces) + 1;
 		spaces = 0;
 		for (int i = 0; i < board.length; i++) {
 			for (int j = 0; j < board[i].length; j++) {
@@ -169,6 +167,8 @@ public class Snake {
 				}
 				spaces++;
 			}
+			if(i == board.length - 1)
+				i = 0;
 		}
 	}
 
