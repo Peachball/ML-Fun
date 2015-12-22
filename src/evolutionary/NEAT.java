@@ -87,7 +87,8 @@ public class NEAT {
 		// Get fitnesses
 		for (int j = 0; j < genePool.size(); j++) {
 			Genome g = genePool.get(j);
-			int likelyOffspring = Math.max((int) (g.reproduceChance * maxGenePoolSize), 1);
+//			int likelyOffspring = Math.max((int) (g.reproduceChance * maxGenePoolSize), 1);
+			int likelyOffspring = (int) (maxGenePoolSize / genePool.size());
 			for (int i = 0; i < likelyOffspring; i++) {
 				Genome newG = g.clone();
 				try {
@@ -463,7 +464,7 @@ public class NEAT {
 					endNode = inputSize + (int) (Math.random() * (numOfNodes - inputSize) + 1);
 				} else {
 					while (true) {
-						startNode += outputSize;
+						startNode = (int) (Math.random() * (numOfNodes - inputSize - outputSize) + 1 + inputSize + outputSize);
 						if(startNode > numOfNodes){
 							continue;
 						}
@@ -476,11 +477,12 @@ public class NEAT {
 						}
 					}
 				}
+				if(startNode > numOfNodes || endNode > numOfNodes)
+					System.out.println("Captain we got a problem: " + startNode + "," + endNode);
 				this.addLink(startNode, endNode, ++currentInnovation);
 			}
 		}
 
-		// Needs to be reviewed
 		public double distance(Genome g) {
 			double wI = 0;
 			double eI = 0;
