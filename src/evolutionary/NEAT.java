@@ -15,23 +15,25 @@ import Jama.Matrix;
 
 public class NEAT {
 	public double randomInitMean = 0;
-	public double randomInitRange = 5;
-	public double minStepSize = 4;
-	public double maxStepSize = 5;
-	public double excessImportance = 1;
-	public double disjointImportance = 1;
+	public double randomInitRange = 0.1;
+	public double minStepSize = 0;
+	public double maxStepSize = 0.1;
+	public double excessImportance = 2;
+	public double disjointImportance = 2;
 	public double weightImportance = 0.4;
 	public double linkMutateChance = 0.25;
 	public int currentInnovation = 1;
-	public double addLinkChance = 0.2;
-	public double addNodeChance = 0.1;
+	public double addLinkChance = 0.02;
+	public double addNodeChance = 0.005;
 	public ArrayList<Genome> genePool;
 	public int inputSize = 0;
 	public int outputSize = 0;
 	public int stableGenePoolSize = 100;
-	public int maxGenePoolSize = 200;
+	public int maxGenePoolSize = 300;
 	public FitnessFunction f;
 	public int numOfNodes;
+	public double distanceImportance = 0.25;
+	public double fitnessImportance = 1;
 
 	public NEAT(int inputSize, int outputSize, FitnessFunction f) {
 		genePool = new ArrayList<Genome>();
@@ -48,6 +50,9 @@ public class NEAT {
 		if (buffer.inputSize != this.inputSize || buffer.outputSize != this.outputSize)
 			throw new NEATException("Incompatible neats");
 		this.genePool = buffer.genePool;
+		this.numOfNodes = this.numOfNodes > buffer.numOfNodes ? this.numOfNodes : buffer.numOfNodes;
+		this.currentInnovation = this.currentInnovation > buffer.currentInnovation ? this.currentInnovation : buffer.currentInnovation;
+		
 		updateGenes();
 		b.close();
 	}
@@ -65,8 +70,8 @@ public class NEAT {
 			totalDistance += g.distance;
 		}
 		for (Genome g : genePool) {
-			g.adjFitness = (g.fitness / totalFitness) + (g.distance / totalDistance);
-			g.reproduceChance = g.adjFitness / 2.0;
+			g.adjFitness = (fitnessImportance * g.fitness / totalFitness) + (distanceImportance * g.distance / totalDistance);
+			g.reproduceChance = g.adjFitness / (fitnessImportance + distanceImportance);
 		}
 	}
 
@@ -74,8 +79,8 @@ public class NEAT {
 	 * We start off simple, and we go more complicated later Need to make it so
 	 * that the code isn't dependent on predefined fitnesses
 	 */
-	private double preBest = 0;
-	private int generation = 0;
+	public double preBest = 0;
+	public int generation = 0;
 
 	@Deprecated
 	public void reproduce() {
@@ -131,6 +136,10 @@ public class NEAT {
 
 		});
 		return genePool.get(genePool.size() - 1);
+	}
+	
+	public double bestFitness(){
+		return getTop().fitness;
 	}
 
 	public class Link implements Comparable<Link> {
@@ -579,6 +588,16 @@ public class NEAT {
 			}
 			return this.adjFitness < o.adjFitness ? -1 : 1;
 		}
+		
+		/*
+		public double complexity(){
+			double sum = links.size();
+			for(Link l : links){
+				sum += l.weight * l.weight * cWeightImportance;
+			}
+			return sum;
+		}
+		*/
 	}
 
 	/**
@@ -624,6 +643,8 @@ public class NEAT {
 		p.println(stableGenePoolSize);
 		p.println(maxGenePoolSize);
 		p.println(numOfNodes);
+		p.println(distanceImportance);
+		p.println(weightImportance);
 		p.println(genePool.size());
 		for (Genome g : genePool) {
 			writeGenome(p, g);
@@ -651,6 +672,8 @@ public class NEAT {
 		n.stableGenePoolSize = Integer.parseInt(b.readLine());
 		n.maxGenePoolSize = Integer.parseInt(b.readLine());
 		n.numOfNodes = Integer.parseInt(b.readLine());
+		n.distanceImportance = Double.parseDouble(b.readLine());
+		n.weightImportance = Double.parseDouble(b.readLine());
 		int numOfGenomes = Integer.parseInt(b.readLine());
 		for (int i = 0; i < numOfGenomes; i++) {
 			n.genePool.add(readGenome(b, n));

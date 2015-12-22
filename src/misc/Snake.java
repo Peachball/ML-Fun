@@ -47,13 +47,17 @@ public class Snake {
 					PrintWriter out = new PrintWriter(new FileWriter("neat.neat"));
 					ne.writeNEAT(out);
 					out.close();
+					System.out.println("Best avg: " + ne.preBest);
 					System.out.println("Auto saved");
+					System.out.println("Best: " + ne.bestFitness());
+//					F(ne.getTop(), boardX, boardY, true, defaultspeed, 10);
 				}
 				ne.reproduce();
 			}
 			break;
 		}
 	}
+	
 
 	public static double F(Genome theta, int x, int y, boolean display, int speed, int trials) {
 		double sum = 0;
