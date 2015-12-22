@@ -28,8 +28,6 @@ public class Snake {
 		int numOfTrials = boardX * boardY;
 		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
 		int x = 1;
-		while(Math.random() != 1.0){
-		}
 		try {
 			ne.loadFromFile("neat.neat");
 			System.out.println("Loaded old NEAT");
