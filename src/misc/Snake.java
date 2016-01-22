@@ -25,15 +25,18 @@ public class Snake {
 	public static void main(String[] args) throws NEATException, IOException {
 		int boardX, boardY;
 		boardX = boardY = 5;
-		int numOfTrials = boardX * boardY;
-		NEAT ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
-		int x = 1;
-		while(Math.random() != 1.0){
-		}
+		int numOfTrials = 2 * boardX * boardY;
+		NEAT ne;
 		try {
-			ne.loadFromFile("neat.neat");
+			ne = NEAT.readNEAT(new BufferedReader(new FileReader("neat.neat")),
+					(Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
 			System.out.println("Loaded old NEAT");
 		} catch (IOException e) {
+			ne = new NEAT(3 * boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
+			Genome s = ne.new Genome();
+			s.mutate();
+			ne.genePool.add(s);
+			ne.updateGenes();
 			System.out.println("Created new NEAT");
 		}
 
@@ -44,7 +47,7 @@ public class Snake {
 			F(g, boardX, boardY, true, defaultspeed, 10);
 			break;
 		case 2:
-			for (int i = 0; i <= 10000; i++) {
+			for (int i = 1; i <= 10000; i++) {
 				if (i % 100 == 0) {
 					System.out.println("Saving...Do not close");
 					PrintWriter out = new PrintWriter(new FileWriter("neat.neat"));
@@ -53,14 +56,16 @@ public class Snake {
 					System.out.println("Best avg: " + ne.preBest);
 					System.out.println("Auto saved");
 					System.out.println("Best: " + ne.bestFitness());
-//					F(ne.getTop(), boardX, boardY, true, defaultspeed, 10);
+					System.out.println("Generation: " + i);
+					if (ne.getTop() != null) {
+						F(ne.getTop(), boardX, boardY, true, defaultspeed, 10);
+					}
 				}
 				ne.reproduce();
 			}
 			break;
 		}
 	}
-	
 
 	public static double F(Genome theta, int x, int y, boolean display, int speed, int trials) {
 		double sum = 0;
@@ -77,11 +82,9 @@ public class Snake {
 		addApple(board);
 		board[0][0] = 1;
 		int status = 0;
-		int xHead = 0;
-		int yHead = 0;
 		while (true) {
 			Matrix X = convert(board);
-			int nextDir = 0;
+			int nextDir = 1;
 			double max = 0;
 			try {
 				Matrix result = theta.predict(X);
@@ -149,6 +152,8 @@ public class Snake {
 		}
 		int xSize = board.length;
 		int ySize = board[0].length;
+		if(dir < 1 || dir > 4)
+			System.out.println("error");
 		switch (dir) {
 		case 1:
 			if (yHead + 1 >= ySize) {
@@ -179,7 +184,7 @@ public class Snake {
 			}
 			break;
 		}
-		if (board[xHead][yHead] == -1) {
+		if (board[xHead][yHead] <= -1) {
 			board[xHead][yHead] = size + 1;
 			return size;
 		} else if (board[xHead][yHead] > 0) {
@@ -215,6 +220,7 @@ public class Snake {
 			if (i == board.length - 1)
 				i = 0;
 		}
+		System.out.println("problem here");
 	}
 
 	private static Matrix convert(int[][] board) {

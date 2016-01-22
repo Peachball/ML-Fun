@@ -25,7 +25,7 @@ public class Main {
 	static int finePeter = 250;
 
 	public static void main(String[] args){
-		NeuralNetwork.testGradient();
+		Mat.readidx("train-labels.idx1-ubyte");
 	}
 	
 	private static Matrix[] trafficLights(String dir){

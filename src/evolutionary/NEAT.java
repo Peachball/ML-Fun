@@ -34,13 +34,13 @@ public class NEAT {
 	public int numOfNodes;
 	public double distanceImportance = 0.25;
 	public double fitnessImportance = 1;
+	public Genome best;
 
 	public NEAT(int inputSize, int outputSize, FitnessFunction f) {
 		genePool = new ArrayList<Genome>();
 		this.inputSize = inputSize;
 		this.outputSize = outputSize;
 		numOfNodes = inputSize + outputSize;
-		genePool.add(new Genome());
 		this.f = f;
 	}
 
@@ -51,8 +51,9 @@ public class NEAT {
 			throw new NEATException("Incompatible neats");
 		this.genePool = buffer.genePool;
 		this.numOfNodes = this.numOfNodes > buffer.numOfNodes ? this.numOfNodes : buffer.numOfNodes;
-		this.currentInnovation = this.currentInnovation > buffer.currentInnovation ? this.currentInnovation : buffer.currentInnovation;
-		
+		this.currentInnovation = this.currentInnovation > buffer.currentInnovation ? this.currentInnovation
+				: buffer.currentInnovation;
+
 		updateGenes();
 		b.close();
 	}
@@ -60,8 +61,14 @@ public class NEAT {
 	public void updateGenes() {
 		double totalDistance = 0;
 		double totalFitness = 0;
+		if(best == null){
+			best = genePool.get(0);
+		}
 		for (Genome g : genePool) {
 			g.fitness = f.getFitness(g);
+			if (g.fitness > best.fitness) {
+				best = g;
+			}
 			totalFitness += g.fitness;
 			for (Genome ge : genePool) {
 				g.distance += g.distance(ge);
@@ -69,9 +76,14 @@ public class NEAT {
 			g.distance /= genePool.size();
 			totalDistance += g.distance;
 		}
+		if(totalFitness == 0)
+			totalFitness = 1;
+		if(totalDistance == 0)
+			totalDistance = 1;
 		for (Genome g : genePool) {
-			g.adjFitness = (fitnessImportance * g.fitness / totalFitness) + (distanceImportance * g.distance / totalDistance);
-			g.reproduceChance = g.adjFitness / (fitnessImportance + distanceImportance);
+			g.adjFitness = (fitnessImportance * g.fitness / totalFitness)
+					+ (distanceImportance * g.distance / totalDistance);
+			g.reproduceChance = g.adjFitness / 2 / (fitnessImportance + distanceImportance);
 		}
 	}
 
@@ -87,7 +99,8 @@ public class NEAT {
 		// Get fitnesses
 		for (int j = 0; j < genePool.size(); j++) {
 			Genome g = genePool.get(j);
-//			int likelyOffspring = Math.max((int) (g.reproduceChance * maxGenePoolSize), 1);
+			// int likelyOffspring = Math.max((int) (g.reproduceChance *
+			// maxGenePoolSize), 1);
 			int likelyOffspring = (int) (maxGenePoolSize / genePool.size());
 			for (int i = 0; i < likelyOffspring; i++) {
 				Genome newG = g.clone();
@@ -116,7 +129,7 @@ public class NEAT {
 		while (genePool.size() > stableGenePoolSize) {
 			for (int i = 0; i < genePool.size(); i++) {
 				Genome g = genePool.get(i);
-				if (g.adjFitness / 2 * stableGenePoolSize < Math.random()) {
+				if (g.adjFitness * stableGenePoolSize < Math.random()) {
 					genePool.remove(g);
 					i--;
 				}
@@ -126,21 +139,16 @@ public class NEAT {
 	}
 
 	public Genome getTop() {
-		Collections.sort(genePool, new Comparator<Genome>() {
-			@Override
-			public int compare(Genome o1, Genome o2) {
-				if (o1.fitness == o2.fitness) {
-					return 0;
-				}
-				return o1.fitness < o2.fitness ? -1 : 1;
-			}
-
-		});
-		return genePool.get(genePool.size() - 1);
+		return best;
 	}
-	
-	public double bestFitness(){
-		return getTop().fitness;
+
+	public double bestFitness() {
+		if(getTop() != null){
+			return getTop().fitness;
+		}
+		else{
+			return 0;
+		}
 	}
 
 	public class Link implements Comparable<Link> {
@@ -278,20 +286,17 @@ public class NEAT {
 					if (newLink.innovationNumber > maxInnovation) {
 						maxInnovation = newLink.innovationNumber;
 					}
-					if (a.startNode < inputSize + outputSize) {
-						if (s == null) {
-							s = new Node(newLink.endNode);
-						}
-						s.incoming.add(newLink);
+					if (s == null) {
+						s = new Node(newLink.endNode);
 					}
-					if (a.endNode < inputSize + outputSize) {
-						if (e == null) {
-							e = new Node(newLink.endNode);
-						}
-						e.incoming.add(newLink);
+					s.incoming.add(newLink);
+					if (e == null) {
+						e = new Node(newLink.endNode);
 					}
+					e.incoming.add(newLink);
 				}
 			} else if (z.get(0) instanceof Node) {
+				System.out.println("dafuq is this");
 				ArrayList<Node> n = (ArrayList<Node>) z;
 				for (int i = 0; i < n.size(); i++) {
 					Node a = n.get(i).clone();
@@ -444,7 +449,8 @@ public class NEAT {
 		public void mutate() throws NEATException {
 			// Determine whether or not to add a node
 			if (addNodeChance > Math.random()) {
-				this.addNode(++currentInnovation, ++currentInnovation);
+				this.addNode(currentInnovation + 1, currentInnovation + 2);
+				currentInnovation += 2;
 			}
 			// Determine what percentage of links to mutate
 			for (Link l : this.links) {
@@ -457,15 +463,16 @@ public class NEAT {
 			if (addLinkChance > Math.random() || links.isEmpty()) {
 				int startNode = (int) (Math.random() * (numOfNodes - outputSize) + 1);
 				int endNode;
-				if(startNode <= 0){
+				if (startNode <= 0) {
 					throw new NEATException("WHAT THE HELL");
 				}
 				if (startNode <= inputSize) {
 					endNode = inputSize + (int) (Math.random() * (numOfNodes - inputSize) + 1);
 				} else {
 					while (true) {
-						startNode = (int) (Math.random() * (numOfNodes - inputSize - outputSize) + 1 + inputSize + outputSize);
-						if(startNode > numOfNodes){
+						startNode = (int) (Math.random() * (numOfNodes - inputSize - outputSize) + 1 + inputSize
+								+ outputSize);
+						if (startNode > numOfNodes) {
 							continue;
 						}
 						endNode = (int) (Math.random() * (numOfNodes - inputSize) + 1 + inputSize);
@@ -477,9 +484,10 @@ public class NEAT {
 						}
 					}
 				}
-				if(startNode > numOfNodes || endNode > numOfNodes)
+				if (startNode > numOfNodes || endNode > numOfNodes)
 					System.out.println("Captain we got a problem: " + startNode + "," + endNode);
-				this.addLink(startNode, endNode, ++currentInnovation);
+				this.addLink(startNode, endNode, currentInnovation + 1);
+				currentInnovation += 1;
 			}
 		}
 
@@ -590,16 +598,12 @@ public class NEAT {
 			}
 			return this.adjFitness < o.adjFitness ? -1 : 1;
 		}
-		
+
 		/*
-		public double complexity(){
-			double sum = links.size();
-			for(Link l : links){
-				sum += l.weight * l.weight * cWeightImportance;
-			}
-			return sum;
-		}
-		*/
+		 * public double complexity(){ double sum = links.size(); for(Link l :
+		 * links){ sum += l.weight * l.weight * cWeightImportance; } return sum;
+		 * }
+		 */
 	}
 
 	/**
@@ -646,8 +650,9 @@ public class NEAT {
 		p.println(maxGenePoolSize);
 		p.println(numOfNodes);
 		p.println(distanceImportance);
-		p.println(weightImportance);
+		p.println(this.numOfNodes);
 		p.println(genePool.size());
+		writeGenome(p, best);
 		for (Genome g : genePool) {
 			writeGenome(p, g);
 		}
@@ -675,8 +680,9 @@ public class NEAT {
 		n.maxGenePoolSize = Integer.parseInt(b.readLine());
 		n.numOfNodes = Integer.parseInt(b.readLine());
 		n.distanceImportance = Double.parseDouble(b.readLine());
-		n.weightImportance = Double.parseDouble(b.readLine());
+		n.numOfNodes = Integer.parseInt(b.readLine());
 		int numOfGenomes = Integer.parseInt(b.readLine());
+		n.best = readGenome(b, n);
 		for (int i = 0; i < numOfGenomes; i++) {
 			n.genePool.add(readGenome(b, n));
 		}
