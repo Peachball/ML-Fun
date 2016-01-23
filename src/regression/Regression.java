@@ -90,4 +90,36 @@ public class Regression {
 			System.out.print('\n');
 		}
 	}
+	
+	public static Matrix findMean(Matrix X){
+		Matrix means = new Matrix(1, X.getColumnDimension());
+		for(int col = 0; col < X.getColumnDimension(); col++){
+			for(int row = 0; row < X.getRowDimension(); row++){
+				means.set(0, col, means.get(0, col) + X.get(row, col));
+			}
+			means.set(0, col, means.get(0, col) * 1.0 / X.getColumnDimension());
+		}
+		return means;
+	}
+	
+	public static Matrix findDeviation(Matrix X, Matrix means){
+		Matrix sigma = new Matrix(1, X.getColumnDimension());
+		for(int col = 0; col < X.getColumnDimension(); col++){
+			for(int row = 0; row < X.getRowDimension(); row++){
+				sigma.set(0, col, sigma.get(0, col) + Math.abs((X.get(row, col) - means.get(0, col))));
+			}
+			sigma.set(0, col, sigma.get(0, col) * 1.0 / X.getColumnDimension());
+		}
+		return sigma;
+	}
+	
+	public static Matrix rescale(Matrix X, Matrix means, Matrix sigma){
+		Matrix newX = X.minus(means).arrayRightDivide(sigma);
+		return newX;
+	}
+	
+	public static Matrix rescale(Matrix X){
+		Matrix means = findMean(X);
+		return rescale(X, means, findDeviation(X, means));
+	}
 }

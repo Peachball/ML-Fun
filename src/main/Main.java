@@ -3,21 +3,15 @@ package main;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringReader;
-import java.util.ArrayList;
 
 import javax.imageio.ImageIO;
 
 import Jama.Matrix;
 import NN.NeuralNetwork;
 import misc.Mat;
-import misc.Snake;
+import regression.Regression;
 
 public class Main {
 	static String trafficLightWeights="tf.txt";
@@ -25,7 +19,6 @@ public class Main {
 	static int finePeter = 250;
 
 	public static void main(String[] args){
-		NeuralNetwork.testGradient();
 	}
 	
 	private static Matrix[] trafficLights(String dir){
@@ -62,8 +55,7 @@ public class Main {
 			X = addExample(X, convertImage(greens[r].getAbsolutePath()));
 			y = addExample(y, createExample(2, 3));
 		}
-//		NeuralNetwork.testGradient();
-//		System.exit(0);
+		Regression.rescale(X);
 		
 		Matrix[] theta = new Matrix[3];
 		theta[0] = Matrix.random(X.getColumnDimension() + 1, 100);
