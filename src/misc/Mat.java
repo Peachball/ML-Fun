@@ -1,7 +1,7 @@
 package misc;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
 
 import Jama.Matrix;
 
@@ -63,14 +63,28 @@ public class Mat {
 		return a;
 	}
 
-	public static Matrix readidx(String filename) {
-		Matrix X = new Matrix(2,2);
+	public static Matrix readidx(String filename, boolean mode) {
+		Matrix X = null;
 		try {
-			FileReader in = new FileReader(filename);
-			for(int i = 0; i < 4; i++){
-				in.read();
+			DataInputStream in = new DataInputStream(new FileInputStream(filename));
+			in.readInt();
+			int examples = in.readInt();
+			if(mode){
+				int width = in.readInt();
+				int height = in.readInt();
+				X = new Matrix( examples, width * height);
+				for(int i = 0; i < examples; i++){
+					for(int j = 0; j < width*height ;j++){
+						X.set(i, j, in.read());
+					}
+				}
 			}
-			
+			else{
+				X = new Matrix(examples, 10);
+				for(int i = 0; i < examples; i++){
+					X.set(i, in.read(), 1);
+				}
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
