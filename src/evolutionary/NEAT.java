@@ -29,7 +29,7 @@ public class NEAT {
 	public int inputSize = 0;
 	public int outputSize = 0;
 	public int stableGenePoolSize = 100;
-	public int maxGenePoolSize = 300;
+	public int maxGenePoolSize = 500;
 	public FitnessFunction f;
 	public int numOfNodes;
 	public double distanceImportance = 0.25;
