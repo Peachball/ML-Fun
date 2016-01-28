@@ -1,5 +1,6 @@
 package misc;
 
+import java.io.DataInputStream;
 import java.io.FileInputStream;
 
 import Jama.Matrix;
@@ -62,14 +63,28 @@ public class Mat {
 		return a;
 	}
 
-	public static Matrix readidx(String filename) {
-		Matrix X = new Matrix(2,2);
+	public static Matrix readidx(String filename, boolean mode) {
+		Matrix X = null;
 		try {
-			FileInputStream in = new FileInputStream(filename);
-				byte[] buffer = new byte[8];
-				in.read(buffer, 0, 8);
-				System.out.println( buffer[7] + (buffer[6]<<4) + (buffer[5]<<8) + (buffer[4]<<12));
-			
+			DataInputStream in = new DataInputStream(new FileInputStream(filename));
+			in.readInt();
+			int examples = in.readInt();
+			if(mode){
+				int width = in.readInt();
+				int height = in.readInt();
+				X = new Matrix( examples, width * height);
+				for(int i = 0; i < examples; i++){
+					for(int j = 0; j < width*height ;j++){
+						X.set(i, j, in.read());
+					}
+				}
+			}
+			else{
+				X = new Matrix(examples, 10);
+				for(int i = 0; i < examples; i++){
+					X.set(i, in.read(), 1);
+				}
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
