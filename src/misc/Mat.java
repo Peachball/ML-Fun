@@ -1,7 +1,6 @@
 package misc;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
+import java.io.FileInputStream;
 
 import Jama.Matrix;
 
@@ -66,10 +65,10 @@ public class Mat {
 	public static Matrix readidx(String filename) {
 		Matrix X = new Matrix(2,2);
 		try {
-			FileReader in = new FileReader(filename);
-			for(int i = 0; i < 4; i++){
-				in.read();
-			}
+			FileInputStream in = new FileInputStream(filename);
+				byte[] buffer = new byte[8];
+				in.read(buffer, 0, 8);
+				System.out.println( buffer[7] + (buffer[6]<<4) + (buffer[5]<<8) + (buffer[4]<<12));
 			
 		} catch (Exception e) {
 			e.printStackTrace();
