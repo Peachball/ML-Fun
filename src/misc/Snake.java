@@ -24,15 +24,15 @@ public class Snake {
 	 */
 	public static void main(String[] args) throws NEATException, IOException {
 		int boardX, boardY;
-		boardX = boardY = 4;
-		int numOfTrials = 2 * boardX * boardY;
+		boardX = boardY = 7;
+		int numOfTrials = boardX * boardY;
 		NEAT ne;
 		try {
 			ne = NEAT.readNEAT(new BufferedReader(new FileReader("neat.neat")),
 					(Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
 			System.out.println("Loaded old NEAT");
 		} catch (IOException e) {
-			ne = new NEAT(boardX * boardY + 1, 4, (Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
+			ne = new NEAT(boardX * boardY, 4, (Genome g) -> F(g, boardX, boardY, false, 0, numOfTrials));
 			Genome s = ne.new Genome();
 			s.mutate();
 			ne.genePool.add(s);
@@ -109,7 +109,7 @@ public class Snake {
 		board[0][0] = 1;
 		int status = 0;
 		while (true) {
-			Matrix X = superSketchConvert(board);
+			Matrix X = sketchConvert(board);
 			int nextDir = 1;
 			double max = 0;
 			try {
@@ -287,7 +287,7 @@ public class Snake {
 	}
 	
 	private static Matrix sketchConvert(int[][] board){
-		Matrix X = new Matrix(board.length * board[0].length * 2, 1);
+		Matrix X = new Matrix(board.length * board[0].length, 1);
 		int xHead = 0;
 		int yHead = 0;
 		int length = 0;
@@ -302,11 +302,18 @@ public class Snake {
 		}
 		for(int i = 0; i < board.length ; i++){
 			for(int j = 0; j < board[0].length; j++){
-//				X.set(((i - xHead) % board[0].length ) * 2 + (j - yHead));
+				int xpo = i - xHead;
+				int ypo = j - yHead;
+				if( i - xHead < 0){
+					xpo = i - xHead + board.length;
+				}
+				if( j - yHead < 0){
+					ypo = j - yHead + board[0].length;
+				}
+				X.set(xpo * board[0].length + ypo, 0 , board[i][j]);
 			}
 		}
-		
-		return null;
+		return X.transpose();
 	}
 
 	public static void display(int[][] board) {

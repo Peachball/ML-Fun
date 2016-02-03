@@ -32,7 +32,7 @@ public class NEAT {
 	public int maxGenePoolSize = 500;
 	public FitnessFunction f;
 	public int numOfNodes;
-	public double distanceImportance = 0.25;
+	public double distanceImportance = 0.1;
 	public double fitnessImportance = 1;
 	public Genome best;
 
