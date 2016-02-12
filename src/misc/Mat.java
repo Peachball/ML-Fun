@@ -63,7 +63,7 @@ public class Mat {
 		return a;
 	}
 
-	public static Matrix readidx(String filename, boolean mode) {
+	public static Matrix readidx(String filename, boolean mode, int offset, int length) {
 		Matrix X = null;
 		try {
 			DataInputStream in = new DataInputStream(new FileInputStream(filename));
@@ -72,23 +72,33 @@ public class Mat {
 			if(mode){
 				int width = in.readInt();
 				int height = in.readInt();
-				X = new Matrix( examples, width * height);
-				for(int i = 0; i < examples; i++){
+				if(offset + length > examples){
+					offset = examples - length;
+				}
+				X = new Matrix(length , width * height);
+				for(int i = offset; i < offset + length; i++){
 					for(int j = 0; j < width*height ;j++){
-						X.set(i, j, in.read());
+						X.set(i - offset, j, in.read());
 					}
 				}
 			}
 			else{
-				X = new Matrix(examples, 10);
-				for(int i = 0; i < examples; i++){
-					X.set(i, in.read(), 1);
+				if(offset + length > examples){
+					offset = examples - length;
+				}
+				X = new Matrix(length , 10);
+				for(int i = offset; i < offset + length; i++){
+					X.set(i - offset, in.read(), 1);
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		return X;
+	}
+	
+	public static Matrix readidx(String filename, boolean mode){
+		return readidx(filename, mode, 0, 10000);
 	}
 
 }

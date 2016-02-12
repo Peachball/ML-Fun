@@ -181,4 +181,10 @@ public class NeuralNetwork {
 	public static void testGradient(){
 		testGradient(Matrix.random(3, 6), Matrix.random(3, 2));
 	}
+	
+	public static double error(Matrix X, Matrix[] theta, Matrix y){
+		int correct = 0;
+		int total = X.getRowDimension();
+		return correct * 1.0 / total;
+	}
 }

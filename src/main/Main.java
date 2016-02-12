@@ -24,16 +24,22 @@ public class Main {
 	static final String yLegit = "train-labels.idx1-ubyte";
 
 	public static void main(String[] args) {
-		Matrix y = Mat.readidx(yLegit, false);
-		Matrix X = Mat.readidx(Xlegit, true);
+		Matrix y = Mat.readidx(yLegit, false, 0, 20000);
+		Matrix X = Mat.readidx(Xlegit, true, 0, 20000);
 		System.out.println("Loaded Images and labels");
-		Matrix[] theta = new Matrix[3];
-		theta[0] = Matrix.random(X.getColumnDimension() + 1, 1000);
-		theta[1] = Matrix.random(1001, 300);
-		theta[2] = Matrix.random(301, 10);
-		for (int i = 0; i < 100; i++) {
-			theta = NeuralNetwork.trainNN(X, theta, y, 0.03, 0, 10);
+		Matrix[] theta = new Matrix[4];
+		try {
+			theta = NeuralNetwork.read(new File("handwriting.nn"));
+		} catch (IOException e) {
+			theta[0] = Matrix.random(X.getColumnDimension() + 1, 100);
+			theta[1] = Matrix.random(101, 100);
+			theta[2] = Matrix.random(101, 100);
+			theta[3] = Matrix.random(101, 10);
+		}
+		for (int i = 0; i < 1000; i++) {
+			theta = NeuralNetwork.trainNN(X, theta, y, 0.01, 0, 10);
 			try {
+				System.out.println("saved");
 				NeuralNetwork.write(theta, "handwriting.nn");
 			} catch (IOException e) {
 				e.printStackTrace();

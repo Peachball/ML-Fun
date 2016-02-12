@@ -24,7 +24,7 @@ public class Snake {
 	 */
 	public static void main(String[] args) throws NEATException, IOException {
 		int boardX, boardY;
-		boardX = boardY = 7;
+		boardX = boardY = 10;
 		int numOfTrials = boardX * boardY;
 		NEAT ne;
 		try {
