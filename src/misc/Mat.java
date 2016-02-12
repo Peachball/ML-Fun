@@ -75,10 +75,11 @@ public class Mat {
 				if(offset + length > examples){
 					offset = examples - length;
 				}
+				in.skip(offset * width * height);
 				X = new Matrix(length , width * height);
-				for(int i = offset; i < offset + length; i++){
+				for(int i = 0; i < length; i++){
 					for(int j = 0; j < width*height ;j++){
-						X.set(i - offset, j, in.read());
+						X.set(i , j, in.read());
 					}
 				}
 			}
@@ -86,9 +87,10 @@ public class Mat {
 				if(offset + length > examples){
 					offset = examples - length;
 				}
+				in.skip(offset);
 				X = new Matrix(length , 10);
-				for(int i = offset; i < offset + length; i++){
-					X.set(i - offset, in.read(), 1);
+				for(int i = 0; i < length; i++){
+					X.set(i , in.read(), 1);
 				}
 			}
 		} catch (Exception e) {

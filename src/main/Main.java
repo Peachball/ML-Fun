@@ -22,22 +22,50 @@ public class Main {
 	static final String ytest = "t10k-labels.idx1-ubyte";
 	static final String Xlegit = "train-images.idx3-ubyte";
 	static final String yLegit = "train-labels.idx1-ubyte";
+	
+	public static void main(String[] args){
+		handwritingAnalysis(args);
+	}
 
-	public static void main(String[] args) {
-		Matrix y = Mat.readidx(yLegit, false, 0, 20000);
-		Matrix X = Mat.readidx(Xlegit, true, 0, 20000);
+	public static void handwritingAnalysis(String[] args) {
+		Matrix y = Mat.readidx(yLegit, false, 3, 1);
+		Matrix X = Mat.readidx(Xlegit, true, 3, 1);
 		System.out.println("Loaded Images and labels");
+
 		Matrix[] theta = new Matrix[4];
+		final Object thetaLock = new Object();
 		try {
 			theta = NeuralNetwork.read(new File("handwriting.nn"));
+			System.out.println("loaded old file");
 		} catch (IOException e) {
-			theta[0] = Matrix.random(X.getColumnDimension() + 1, 100);
-			theta[1] = Matrix.random(101, 100);
+			theta[0] = Matrix.random(X.getColumnDimension() + 1, 1000);
+			theta[1] = Matrix.random(1001, 100);
 			theta[2] = Matrix.random(101, 100);
 			theta[3] = Matrix.random(101, 10);
+			System.out.println("Create new network");
 		}
-		for (int i = 0; i < 1000; i++) {
-			theta = NeuralNetwork.trainNN(X, theta, y, 0.01, 0, 10);
+		Matrix[] gradient = NeuralNetwork.grad(X, theta, y);
+		final Object gLock = new Object();
+		class updateNetwork implements Runnable{
+			
+			private int i = 0;
+			
+			public updateNetwork(int i){
+				this.i = i;
+			}
+
+			@Override
+			public void run() {
+			}
+			
+		}
+		
+		
+		//Currently is running batch gradient descent
+		for (int i = (int) (Math.random() * 12); i < 1000; i++) {
+			System.out.println("started learning");
+			theta = NeuralNetwork.trainNN( Mat.readidx(Xlegit, true, (i%11) * 5000, 5000),
+					theta, Mat.readidx(yLegit,  false, (i%11)*5000, 5000), 0.01, 0, 10);
 			try {
 				System.out.println("saved");
 				NeuralNetwork.write(theta, "handwriting.nn");
@@ -46,7 +74,7 @@ public class Main {
 			}
 		}
 	}
-
+	
 	private static Matrix[] trafficLights(String dir) {
 		File d = new File(dir);
 		File[] files = d.listFiles();
