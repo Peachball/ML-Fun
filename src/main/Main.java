@@ -24,7 +24,10 @@ public class Main {
 	static final String yLegit = "train-labels.idx1-ubyte";
 	
 	public static void main(String[] args){
-		handwritingAnalysis(args);
+		Matrix a = Matrix.random(1, 4);
+		Matrix b = Matrix.random(1, 2);
+		Matrix x = Mat.append(a, b);
+		System.out.println("ey");
 	}
 
 	public static void handwritingAnalysis(String[] args) {

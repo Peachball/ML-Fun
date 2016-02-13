@@ -103,4 +103,20 @@ public class Mat {
 		return readidx(filename, mode, 0, 10000);
 	}
 
+	public static Matrix append(Matrix a, Matrix b){
+		if(a.getRowDimension() != b.getRowDimension()){
+			System.out.println("UNEQUAL DIMENSIONS FOR APPEND");
+			return null;
+		}
+		Matrix ans = new Matrix(a.getRowDimension(), a.getColumnDimension()+ b.getColumnDimension());
+		for(int i = 0; i < ans.getRowDimension(); i++){
+			for(int j = 0; j < a.getColumnDimension(); j++){
+				ans.set(i, j, a.get(i, j));
+			}
+			for(int j = 0; j < b.getColumnDimension(); j++){
+				ans.set(i, j + a.getColumnDimension(), b.get(i, j));
+			}
+		}
+		return ans;
+	}
 }
