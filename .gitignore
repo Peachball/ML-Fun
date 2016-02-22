@@ -3,3 +3,4 @@
 *.swp
 *.nn
 /python/musicDataSet/
+/python/convertedDataSet/
