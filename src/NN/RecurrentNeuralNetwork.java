@@ -25,7 +25,7 @@ public class RecurrentNeuralNetwork {
 			}
 			a = Mat.remove1stColumn(a);
 		}
-		return a;
+		return null;
 
 	}
 	
