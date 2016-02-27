@@ -1,6 +1,7 @@
 from pybrain.tools.customxml.networkwriter import NetworkWriter
 from pybrain.tools.customxml.networkreader import NetworkReader
 from pybrain.supervised.trainers import RPropMinusTrainer
+from pybrain.supervised.trainers import BackpropTrainer
 from pybrain.structure import SoftmaxLayer
 from pybrain.tools.shortcuts import buildNetwork
 from pybrain.datasets import ClassificationDataSet
@@ -42,8 +43,8 @@ def readLabels(filename, length=60000):
 INPUT_FILE_NAME = '../train-images.idx3-ubyte'
 INPUT_LABELS_NAME = '../train-labels.idx1-ubyte'
 
-images = readInput(INPUT_FILE_NAME, length=10)
-labels = readLabels(INPUT_LABELS_NAME, length=10)
+images = readInput(INPUT_FILE_NAME)
+labels = readLabels(INPUT_LABELS_NAME)
 
 data = ClassificationDataSet(28*28, 10)
 for i in range(len(images)):
@@ -52,7 +53,7 @@ for i in range(len(images)):
 print('\n\r Creating network')
 NN = buildNetwork(28*28, 1000, 1000, 10, outclass=SoftmaxLayer)
 
-trainer = RPropMinusTrainer(NN, dataset=data)
+trainer = BackpropTrainer(NN, dataset=data)
 
 print('Started training')
 for i in range(100):
