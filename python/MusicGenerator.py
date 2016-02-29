@@ -1,3 +1,4 @@
+import platform
 import numpy as np
 import subprocess as sp
 import threading
@@ -10,7 +11,7 @@ def getYoutubeVideoUrls():
 	videos = doc('#playlist-autoscroll-list > li > a')
 	return videos
 
-def downloadVideo(indexs):
+def downloadVideo(indexs, videos=getYoutubeVideoUrls()):
 	for index in indexs:
 		link = 'https://youtube.com' + videos[index].attrib['href']
 		p = pafy.new(link)
@@ -28,7 +29,10 @@ def downloadAllMusic():
 def convertAudioFile(index):
 	filename = "musicDataSet/" + str(index) + ".mp3"
 	outputFilename = "convertedDataSet/" + str(index) + ".wav"
-	sp.call(['ffmpeg', '-loglevel', 'panic', '-i', filename,  outputFilename])
+	if platform.system() == 'Linux':
+		sp.call(['avconv', '-i', filename, '-f', 'wav', outputFilename])
+	else:
+		sp.call(['ffmpeg', '-loglevel', 'panic', '-i', filename,  outputFilename])
 
 def convertAudioFiles(ra):
 	for i in ra:
@@ -41,6 +45,19 @@ def convertAllAudioFiles():
 			i*10+10),))
 		t.dameon = False
 		t.start()
+
+def checkCompletion():
+	import os.path
+	missing = []
+	for i in range(200):
+		if not os.path.isfile('musicDataSet/' + str(i) + '.mp3'):
+			print("Uh oh: " + str(i))
+			missing.append(i)
+	return missing
+
+def repair():
+	miss = checkCompletion()
+	downloadVideo(miss)
 
 #Begin machine learning part
 from pybrain.datasets import SequentialDataSet
@@ -78,17 +95,18 @@ def convertFilesToDataSet(indexs, inputsize=100, dataset=None):
 def generateMusicFile(network, name="test.wav", length=60):
 	pass
 
-try:
-	lstm = NetworkReader.readFrom('musicgennet.xml')
-	print('Loaded existing network')
-except:
-	lstm = buildNetwork(INPUTSIZE, 10, INPUTSIZE, hiddenclass=LSTMLayer,
-		outclass=LinearLayer)
-	print('Generated new network')
+if __name__ == '__main__':
+	try:
+		lstm = NetworkReader.readFrom('musicgennet.xml')
+		print('Loaded existing network')
+	except:
+		lstm = buildNetwork(INPUTSIZE, 10, INPUTSIZE, hiddenclass=LSTMLayer,
+			outclass=LinearLayer)
+		print('Generated new network')
 
-trainer = BackpropTrainer(lstm)
-for i in range(200):
-	print('Training...')
-	print('Trained one iteration with error:' +
-			str(trainer.trainOnDataset(convertFileToDataSet(i))))
-	NetworkWriter.writeToFile(lstm, 'musicgennet.xml')
+	trainer = BackpropTrainer(lstm)
+	for i in range(200):
+		print('Training...')
+		print('Trained one iteration with error:' +
+				str(trainer.trainOnDataset(convertFileToDataSet(i))))
+		NetworkWriter.writeToFile(lstm, 'musicgennet.xml')

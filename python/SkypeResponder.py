@@ -1,11 +1,23 @@
 import Skype4Py as skpy
+from chatterbot import ChatBot
 
-print
+chatTestBot = ChatBot("Joe Odle")
 
+#Learns from responses
+msglist = []
 def responder(Message, Status):
     if Status == 'RECEIVED':
         msg = Message.Body.lower()
-        Message.Chat.SendMessage('sure')
+        msglist.append(msg)
+        response = chatTestBot.get_response(msg)
+        Message.Chat.SendMessage(response)
+        msglist.append(response)
+        if len(msglist) > 3:
+            chatTestBot.train(msglist[-3:-1])
+    if Status == 'SENT':
+        msg = Message.Body.lower()
+        if msg == 'viewmsgs':
+            print msglist
 
 skype = skpy.Skype()
 
@@ -19,4 +31,4 @@ for chat in skype.Chats:
     print chat.Name
 
 while True:
-	input('running')
+    pass
