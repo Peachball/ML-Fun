@@ -79,7 +79,7 @@ def readMNISTData(length=10000):
         print('\r Read {}/{}'.format(i, length), end="")
     return (np.array(imgs), np.array(lbls))
 
-x, y = readMNISTData()
+x, y = readMNISTData(60000)
 
 nn = FFNet(0.01, 28*28, 1000, 10)
 

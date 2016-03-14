@@ -43,83 +43,72 @@ def getPage():
 	response = urllib.request.urlopen('http://en.wikipedia.org/wiki/Special:Random')
 	return response.read()
 
-from pybrain.datasets import SequentialDataSet
-from itertools import cycle
-
-def fillDataSet(data, num=1, array=False):
-	print('Getting Wiki articles...')
-	for i in range(num):
-		data.newSequence()
-		html = getPage()
-		for char1, char2 in zip(html, html[1:]):
-			if array:
-				dinput = [0] * 256
-				doutput = [0]  * 257
-				dinput[char1] = 1
-				doutput[char2] = 1
-			else:
-				dinput = [char1]
-				doutput = [char2, 0]
-			data.addSample(dinput, doutput)
-		char1 = html[-1]
-
-		if array:
-			dinput = [0] * 256
-			doutput = [0] * 257
-			dinput[char1] = 1
-			doutput[-1] = 1
-		else:
-			dinput = char1
-			douput = [0, 0]
-		data.addSample(dinput, doutput)
-		print('\r Article # {}/{}'.format(i+1, num), end="")
-	print('\r\n Finished getting Articles')
-	return data
-
-ds = SequentialDataSet(1, 2)
-
-fillDataSet(ds, 1)
-
-#Set up lstm stuff
-from pybrain.tools.shortcuts import buildNetwork
-from pybrain.structure.modules import LSTMLayer
-
-try:
-	lstm = NetworkReader.readFrom('Wiki.xml')
-	print('Loaded lstm from file')
-except:
-	lstm = buildNetwork(1, 5, 2, hiddenclass=LSTMLayer, outputbias=False,
-		recurrent=True)
-	print('Created new network')
-
-from pybrain.supervised.trainers import RPropMinusTrainer
-from pybrain.supervised.trainers import BackpropTrainer
-
-createWebpage(lstm, 'test.html')
-
-trainer = BackpropTrainer(lstm, dataset=ds)
-train_errors = [] # save errors for plotting later
-EPOCHS_PER_CYCLE = 1
-CYCLES = 10
-EPOCHS = EPOCHS_PER_CYCLE * CYCLES
-for i in range(CYCLES):
-	print('Started training')
-	trainer.trainEpochs(EPOCHS_PER_CYCLE)
-	train_errors.append(trainer.testOnData())
-	epoch = (i+1) * EPOCHS_PER_CYCLE
-	print("\r epoch {}/{}".format(epoch, EPOCHS), end="")
-
-plt.plot(range(0, EPOCHS, EPOCHS_PER_CYCLE), train_errors)
-plt.xlabel('epoch')
-plt.ylabel('error')
-plt.show()
-
-print('Wrote network down')
-NetworkWriter.writeToFile(lstm, 'Wiki.xml')
-
-createWebpage(lstm, 'test.html')
 
 
-lstm.reset()
 
-createWebpage(lstm, 'test.html')
+
+#WIKI PAGE PART 2
+import theano.tensor as T
+import theano
+import numpy as np
+
+class LSTMLayer:
+	def __init__(self, in_size, out_size, cell_size=10):
+		self.C = theano.shared(value=np.zeros((1, cell_size)))
+		self.h = theano.shared(value=np.zeros((1, out_size)))
+		self.x = T.dmatrix()
+		self.y = T.dmatrix()
+
+		#Forget gate
+		self.W_xf = theano.shared(value=np.random.rand(in_size, cell_size))
+		self.W_hf = theano.shared(value=np.random.rand(out_size, cell_size))
+		self.W_cf = theano.shared(value=np.random.rand(cell_size, cell_size))
+		self.b_f = theano.shared(np.random.rand(1, cell_size))
+
+		forget = T.nnet.sigmoid(T.dot(self.h, self.W_cf) + T.dot(self.x, self.W_xf) + self.b_f)
+
+		#Memories
+		self.W_hm = theano.shared(value=np.random.rand(out_size, cell_size))
+		self.W_xm = theano.shared(value=np.random.rand(in_size, cell_size))
+		self.b_m = theano.shared(np.random.rand(1, cell_size))
+
+		memories = T.tanh(T.dot(self.h, self.W_hm) + T.dot(self.x, self.W_xm) + self.b_m)
+
+		#Remember Gate
+		self.W_hr = theano.shared(value=np.random.rand(out_size, cell_size))
+		self.W_cr = theano.shared(value=np.random.rand(cell_size, cell_size))
+		self.W_xr = theano.shared(value=np.random.rand(in_size, cell_size))
+		self.b_r = theano.shared(value=np.random.rand(1, cell_size))
+
+		remember = T.nnet.sigmoid(T.dot(self.h, self.W_hr) + T.dot(self.x, self.W_xr) + self.b_r)
+
+		#Output
+		self.W_co = theano.shared(value=np.random.rand(cell_size, out_size))
+		self.b_co = theano.shared(value=np.random.rand(1, out_size))
+		self.W_ho = theano.shared(value=np.random.rand(out_size, out_size))
+		self.W_xo = theano.shared(value=np.random.rand(in_size, out_size))
+		self.b_xo = theano.shared(value=np.random.rand(1, out_size))
+
+		output = T.nnet.sigmoid(T.dot(self.C, self.W_co) + self.b_co) * \
+				T.nnet.sigmoid(T.dot(self.h, self.W_ho) + T.dot(self.x, self.W_xo) + self.b_xo)
+		self.predict = theano.function([self.x], output, updates=[(self.h, output),
+			(self.C, self.C * forget + remember * memories)])
+
+		error = -T.mean((self.y)*T.log(output) + (1-self.y)*T.log(1-output))
+		self.J = theano.function([self.x, self.y], error)
+
+	def reset(self):
+		self.C.set_value(np.zeros((1, cell_size)))
+		self.h.set_value(np.zeros((1, out_size)))
+
+	def learn(self, x, y):
+		self.reset()
+		for a, b in zip(x, y):
+			if b == None:
+				predict(a)
+		pass
+
+lstm = LSTMLayer(4, 10)
+
+for i in range(10):
+	print(lstm.predict(np.array([[1,2,3,4]])))
