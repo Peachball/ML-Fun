@@ -1,68 +1,87 @@
+import struct
 import theano
 from theano import tensor as T
 import numpy as np
 import collections
 
-Y = T.dmatrix('output')
-X = T.dmatrix('input')
-W = T.dmatrix('weights')
+class FFNet:
+    def __init__(self, alpha=0.01, *dim):
+        self.in_size = dim[0]
+        self.out_size = dim[-1]
+        self.W = []
+        self.b = []
+        for i in range(len(dim)-1):
+            self.W.append(theano.shared(value=np.random.rand(dim[i], dim[i+1])))
+            self.b.append(theano.shared(value=np.random.random()))
 
-def J(p, y, weights=None, lam=0):
-	mse = np.square(p - y)
-	l = 0
-	if weights != None and lam != 0:
-		l = lam*np.sum(np.square(weights))
-	return mse + l
+        X = T.dmatrix('input')
+        y = T.dmatrix('output')
+        a = []
+        a.append(X)
+        for w, bias in zip(self.W, self.b):
+            a.append(T.nnet.sigmoid(T.dot(a[-1], w) + bias))
+        prediction = a[-1]
+        self.predict = theano.function([X], prediction)
+        self.error = -T.mean((y)*T.log(prediction) + (1-y)*T.log(1-prediction))
 
-def sigmoid(x):
-	return (1/(1+np.exp(x)))
+        self.J = theano.function([X, y], self.error)
 
-class StandardDataset:
-	def __init__(self, insize, outsize):
-		self.data=[]
-		self.insize = insize
-		self.outsize = outsize
-	
-	def addData(x, y):
-		if x.shape[1] != self.insize:
-			print 'Bad input size'
-			return
-		if y.shape[1] != self.outsize:
-			print 'Bad output size'
-			return
-		self.data.append((x, y))
-		return
+        self.alpha = theano.shared(alpha)
+        g_b = []
+        g_w = []
+        updates = []
+        i = 0
+        for w, bias in zip(self.W, self.b):
+            g_w.append(T.grad(self.error, w))
+            g_b.append(T.grad(self.error, bias))
+            updates.append((w, w - self.alpha * g_w[i]))
+            updates.append((bias, bias - self.alpha * g_b[i]))
+            i = i + 1
 
-class FFNetwork:
-	def __init__(self, *dimensions):
-		self.weights = []
-		rotatedd = collections.deque(dimensions)
-		rotatedd.rotate(-1)
-		for i, j in zip(dimensions[:-1],rotatedd):
-			self.weights.append(np.random.rand(i+1,j))
-		
-		self.weights[-1] = np.random.rand(dimensions[-2]+1, dimensions[-1])
-		return
-	
-	def learn(self, X, Y, alpha=0.01):
-		grad = []
-		z = []
-		a = []
-		print X.shape
-		a.append(np.append(np.ones((X.shape[0], 1)) ,X, axis=1))
-		for w in self.weights:
-			z.append(a[-1].dot(w))
-			a.append(np.append(np.ones((z[-1].shape[0], 1)), sigmoid(z[-1]), axis=1))
-		print a
+        self.learn = theano.function([X, y], self.error, updates=updates)
+
+    def batchLearning(self, X, y, iterations=100):
+        for i in range(iterations):
+            print (self.learn(X, y))
+
+    def getWeightValues(self):
+        return self.W
+
+def readMNISTData(length=10000):
+    images = open('../train-images.idx3-ubyte', 'rb')
+    labels = open('../train-labels.idx1-ubyte', 'rb')
+    images.read(8)
+    labels.read(8)
+    def readInt(isn=True):
+        if isn:
+            return int.from_bytes(images.read(4), byteorder='big', signed=True)
+        else:
+            return int.from_bytes(labels.read(4), byteorder='big', signed=True)
+    xsize = readInt()
+    ysize = readInt()
+    def readImage():
+        img = []
+        for i in range(xsize):
+            for j in range(ysize):
+                img.append(struct.unpack('>B', images.read(1))[0])
+        return img
+
+    def readLabel():
+        testLabel = [0]*10
+        testLabel[struct.unpack('B', labels.read(1))[0]] = 1
+        return testLabel
+
+    imgs = []
+    lbls = []
+    for i in range(length):
+        imgs.append(readImage())
+        lbls.append(readLabel())
+        print('\r Read {}/{}'.format(i, length), end="")
+    return (np.array(imgs), np.array(lbls))
+
+x, y = readMNISTData()
+
+nn = FFNet(0.01, 28*28, 1000, 10)
 
 
-ffnet = FFNetwork(2, 4, 1)
-
-ffnet.learn(np.array([[-1,1],[-2, 0]]), np.array([[1],[0]]))
-
-print ffnet.weights
-class RNNNetwork:
-	pass
-
-class LSTMNetwork:
-	pass
+nn.batchLearning(x, y, iterations=100000)
