@@ -29,6 +29,8 @@ skype.Attach()
 
 for chat in skype.Chats:
     print chat.Name
+    for m in chat.Messages:
+        print m.Body
 
 while True:
     pass
