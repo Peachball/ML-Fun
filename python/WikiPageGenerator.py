@@ -57,7 +57,7 @@ class LSTMLayer:
 	'''
 		This assumes that in this recurrent net, there is a corresponding output to each input
 	'''
-	def __init__(self, in_size, out_size, cell_size=10, alpha=0.01):
+	def __init__(self, in_size, out_size, cell_size=100, alpha=0.01):
 		self.alpha = alpha
 		self.in_size = in_size
 		self.out_size = out_size
@@ -109,12 +109,12 @@ class LSTMLayer:
 			c_t = self.C * forget + rem * mem
 			return [h_t, c_t]
 
-		[hidden, cell_state], _ = theano.scan(fn=recurrence, 
+		([hidden, cell_state], _) = theano.scan(fn=recurrence, 
 				sequences=x, 
 				outputs_info=[self.h, self.C],
 				n_steps=x.shape[0])
 
-		output = hidden
+		output = hidden.reshape((hidden.shape[0], hidden.shape[2]))
 		self.predict = theano.function([x], output, name='predict', updates=[(self.C, cell_state[-1]),
 			(self.h, hidden[-1])])
 
@@ -130,9 +130,16 @@ class LSTMLayer:
 		self.h.set_value(np.zeros((1, self.out_size)))
 	
 	def batchLearning(self, x, y, iterations=100):
-		self.reset()
 		for i in range(iterations):
+			self.reset()
 			print (self.learn(x,y))
 
-lstm = LSTMLayer(2, 2)
+lstm = LSTMLayer(1, 1)
 
+xDataset = np.array([[1]*3 + [2]*3]).T
+yDataset = np.array([[1]*3 +[0]*3]).T
+
+print(lstm.batchLearning(xDataset, yDataset))
+
+lstm.reset()
+print(lstm.predict(xDataset))
