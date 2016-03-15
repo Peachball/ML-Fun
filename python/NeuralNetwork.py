@@ -5,14 +5,14 @@ import numpy as np
 import collections
 
 class FFNet:
-    def __init__(self, alpha=0.01, *dim):
+    def __init__(self, alpha=0.01, init_size=0.1, *dim):
         self.in_size = dim[0]
         self.out_size = dim[-1]
         self.W = []
         self.b = []
         for i in range(len(dim)-1):
-            self.W.append(theano.shared(value=np.random.rand(dim[i], dim[i+1])))
-            self.b.append(theano.shared(value=np.random.random()))
+            self.W.append(theano.shared(value=init_size*np.random.rand(dim[i], dim[i+1])))
+            self.b.append(theano.shared(value=init_size*np.random.rand(dim[i+1])))
 
         X = T.dmatrix('input')
         y = T.dmatrix('output')
@@ -42,7 +42,7 @@ class FFNet:
 
     def batchLearning(self, X, y, iterations=100):
         for i in range(iterations):
-            print (self.learn(X, y))
+            self.learn(X, y)
 
     def getWeightValues(self):
         return self.W
@@ -77,11 +77,58 @@ def readMNISTData(length=10000):
         imgs.append(readImage())
         lbls.append(readLabel())
         print('\r Read {}/{}'.format(i, length), end="")
+    print('Done reading')
     return (np.array(imgs), np.array(lbls))
+    
+def readcv():
+    images = open('../t10k-images.idx3-ubyte', 'rb')
+    labels = open('../t10k-labels.idx1-ubyte', 'rb')
+    images.read(8)
+    labels.read(8)
+    def readInt(isn=True):
+        if isn:
+            return int.from_bytes(images.read(4), byteorder='big', signed=True)
+        else:
+            return int.from_bytes(labels.read(4), byteorder='big', signed=True)
+    xsize = readInt()
+    ysize = readInt()
+    def readImage():
+        img = []
+        for i in range(xsize):
+            for j in range(ysize):
+                img.append(struct.unpack('>B', images.read(1))[0])
+        return img
 
-x, y = readMNISTData(60000)
+    def readLabel():
+        testLabel = [0]*10
+        testLabel[struct.unpack('B', labels.read(1))[0]] = 1
+        return testLabel
 
-nn = FFNet(0.01, 28*28, 1000, 10)
+    imgs = []
+    lbls = []
+    for i in range(10):
+        imgs.append(readImage())
+        lbls.append(readLabel())
+        print('\r Read {}/{}'.format(i, 10), end="")
+        
+    print ('Done Reading')
+    return (np.array(imgs), np.array(lbls))
+    
+    
+def percentError(net, x, y):
+    p = np.argmax(net.predict(x), axis=1)
+    ans = np.argmax(y, axis=1)
+    accuracy = np.sum(np.equal(ans, p))
+    print(ans, net.predict(x), p, np.equal(ans, p))
+    return accuracy
+
+x, y = readMNISTData(10)
+
+xcv, ycv = readcv()
+
+nn = FFNet(0.03, 0.1, 28*28, 100, 10)
 
 
-nn.batchLearning(x, y, iterations=100000)
+print(percentError(nn, x, y))
+nn.batchLearning(x, y, iterations=100)
+print(percentError(nn, x, y))
