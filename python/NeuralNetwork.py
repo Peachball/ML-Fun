@@ -1,3 +1,5 @@
+from __future__ import print_function
+import struct
 from collections import OrderedDict
 import struct
 import theano
@@ -26,14 +28,13 @@ class FFNet:
         self.predict = theano.function([X], prediction)
         self.error = -T.mean((y)*T.log(prediction) + (1-y)*T.log(1-prediction))
         
-        theano.printing.debugprint(self.predict)
+        theano.printing.pydotprint(self.error, outfile='./ffnet.png')
 
         self.J = theano.function([X, y], self.error)
 
         self.alpha = alpha
         g_b = []
         g_w = []
-        self.params = [self.W, self.b]
         updates = []
         i = 0
         for w, bias in zip(self.W, self.b):
@@ -49,6 +50,8 @@ class FFNet:
         for i in range(iterations):
             if verbose:
                 print(self.learn(X, y))
+                if i % 10 == 0:
+                    print(self.b[1].get_value())
             else:
                 self.learn(X,y)
 
@@ -62,7 +65,7 @@ def readMNISTData(length=10000):
     labels.read(8)
     def readInt(isn=True):
         if isn:
-            return int.from_bytes(images.read(4), byteorder='big', signed=True)
+            return struct.unpack('>i', images.read(4))[0]
         else:
             return int.from_bytes(labels.read(4), byteorder='big', signed=True)
     xsize = readInt()
@@ -95,7 +98,7 @@ def readcv():
     labels.read(8)
     def readInt(isn=True):
         if isn:
-            return int.from_bytes(images.read(4), byteorder='big', signed=True)
+            return struct.unpack('>i', images.read(4))[0]
         else:
             return int.from_bytes(labels.read(4), byteorder='big', signed=True)
     xsize = readInt()
@@ -126,15 +129,17 @@ def percentError(net, x, y):
     p = np.argmax(net.predict(x), axis=1)
     ans = np.argmax(y, axis=1)
     accuracy = np.sum(np.equal(ans, p))
-#    print(ans, net.predict(x), p, np.equal(ans, p))
+    print(y, ans, net.predict(x), p, np.equal(ans, p))
     return accuracy
 x, y = readMNISTData(1)
 
 xcv, ycv = readcv()
 
-nn = FFNet(1, 1, 28*28, 100, 10)
+xor = np.array([[0,0],[0,1],[1,0],[1,1]])
+yor = np.array([[0],[1],[1],[0]])
 
+xornetwork = FFNet(0.1, 0.1, 2, 100, 1)
 
-print(percentError(nn, x, y))
-nn.batchLearning(x, y, iterations=1000)
-print(percentError(nn, x, y))
+print(percentError(xornetwork, xor, yor))
+xornetwork.batchLearning(xor, yor, iterations=100, verbose=True)
+print(percentError(xornetwork, xor, yor))
