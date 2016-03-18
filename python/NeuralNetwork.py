@@ -34,15 +34,18 @@ class FFNet:
         for w, bias in zip(self.W, self.b):
             g_w.append(T.grad(self.error, w))
             g_b.append(T.grad(self.error, bias))
-            updates.append((w, w - self.alpha * g_w[i]))
-            updates.append((bias, bias - self.alpha * g_b[i]))
+            updates.append((w, w - self.alpha * g_w[-1]))
+            updates.append((bias, bias - self.alpha * g_b[-1]))
             i = i + 1
 
         self.learn = theano.function([X, y], self.error, updates=updates)
 
-    def batchLearning(self, X, y, iterations=100):
+    def batchLearning(self, X, y, iterations=100, verbose=False):
         for i in range(iterations):
-            self.learn(X, y)
+            if verbose:
+                print(self.learn(X, y))
+            else:
+                self.learn(X,y)
 
     def getWeightValues(self):
         return self.W
@@ -76,7 +79,7 @@ def readMNISTData(length=10000):
     for i in range(length):
         imgs.append(readImage())
         lbls.append(readLabel())
-        print('\r Read {}/{}'.format(i, length), end="")
+        print('\r Read {}/{}'.format(i+1, length), end="")
     print('Done reading')
     return (np.array(imgs), np.array(lbls))
     
@@ -109,26 +112,25 @@ def readcv():
     for i in range(10):
         imgs.append(readImage())
         lbls.append(readLabel())
-        print('\r Read {}/{}'.format(i, 10), end="")
+        print('\r Read {}/{}'.format(i+1, 10), end="")
         
     print ('Done Reading')
     return (np.array(imgs), np.array(lbls))
-    
     
 def percentError(net, x, y):
     p = np.argmax(net.predict(x), axis=1)
     ans = np.argmax(y, axis=1)
     accuracy = np.sum(np.equal(ans, p))
-    print(ans, net.predict(x), p, np.equal(ans, p))
+#    print(ans, net.predict(x), p, np.equal(ans, p))
     return accuracy
 
-x, y = readMNISTData(10)
+x, y = readMNISTData(10000)
 
 xcv, ycv = readcv()
 
-nn = FFNet(0.03, 0.1, 28*28, 100, 10)
+nn = FFNet(0.01, 0.1, 784, 10)
 
 
 print(percentError(nn, x, y))
-nn.batchLearning(x, y, iterations=100)
+nn.batchLearning(x, y, iterations=1000, verbose=True)
 print(percentError(nn, x, y))
