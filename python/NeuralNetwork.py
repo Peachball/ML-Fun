@@ -1,6 +1,8 @@
+from collections import OrderedDict
 import struct
 import theano
 from theano import tensor as T
+from theano import pp
 import numpy as np
 import collections
 
@@ -11,8 +13,8 @@ class FFNet:
         self.W = []
         self.b = []
         for i in range(len(dim)-1):
-            self.W.append(theano.shared(value=init_size*np.random.rand(dim[i], dim[i+1])))
-            self.b.append(theano.shared(value=init_size*np.random.rand(dim[i+1])))
+            self.W.append(theano.shared(value=init_size*(0.5 * np.random.rand(dim[i], dim[i+1]) - 1), name=('Weight' + str(i))))
+            self.b.append(theano.shared(value=init_size*(0.5 * np.random.rand(dim[i+1]) - 1), name=('Bias' + str(i))))
 
         X = T.dmatrix('input')
         y = T.dmatrix('output')
@@ -23,12 +25,15 @@ class FFNet:
         prediction = a[-1]
         self.predict = theano.function([X], prediction)
         self.error = -T.mean((y)*T.log(prediction) + (1-y)*T.log(1-prediction))
+        
+        theano.printing.debugprint(self.predict)
 
         self.J = theano.function([X, y], self.error)
 
-        self.alpha = theano.shared(alpha)
+        self.alpha = alpha
         g_b = []
         g_w = []
+        self.params = [self.W, self.b]
         updates = []
         i = 0
         for w, bias in zip(self.W, self.b):
@@ -40,9 +45,12 @@ class FFNet:
 
         self.learn = theano.function([X, y], self.error, updates=updates)
 
-    def batchLearning(self, X, y, iterations=100):
+    def batchLearning(self, X, y, iterations=100, verbose=False):
         for i in range(iterations):
-            self.learn(X, y)
+            if not verbose:
+                self.learn(X, y)
+            else:
+                print(self.learn(X,y))
 
     def getWeightValues(self):
         return self.W
@@ -122,13 +130,13 @@ def percentError(net, x, y):
     print(ans, net.predict(x), p, np.equal(ans, p))
     return accuracy
 
-x, y = readMNISTData(10)
+x, y = readMNISTData(1)
 
 xcv, ycv = readcv()
 
-nn = FFNet(0.03, 0.1, 28*28, 100, 10)
+nn = FFNet(1, 1, 28*28, 100, 10)
 
 
 print(percentError(nn, x, y))
-nn.batchLearning(x, y, iterations=100)
+nn.batchLearning(x, y, iterations=1000)
 print(percentError(nn, x, y))
