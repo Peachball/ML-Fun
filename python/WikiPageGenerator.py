@@ -133,12 +133,17 @@ class LSTMLayer:
 		y = T.dmatrix()
 		self.error = -T.mean((y)*T.log(output) + (1-y)*T.log(1-output))
 		self.J = theano.function([x, y], self.error)
-		gradients = T.grad(cost=self.error, wrt=self.params)
+		defineGradients()
+
+	def defineGradients(self):
+		self.gradients = T.grad(cost=self.error, wrt=self.params)
 		gradUpdates = OrderedDict((p, p - self.alpha * g) for p, g in zip(self.params, gradients))
 		self.learn = theano.function([x, y], outputs=self.error, updates=gradUpdates)
 
 	def setError(errorExpression):
 		self.error = errorExpression
+		self.J = theano.function([x, y], self.error)
+		self.defineGradients()
 
 	def reset(self):
 		self.C.set_value(np.zeros((1, self.cell_size)))
