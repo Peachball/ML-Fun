@@ -68,6 +68,7 @@ class FFNet:
         self.getGrad= theano.function([X, y], [weight_grad, bias_grad])
         '''
         self.learn = theano.function([X, y], self.error, updates=updates)
+        theano.printing.pydotprint(self.learn, outfile='ffnet.png')
 
     def batchLearning(self, X, y, iterations=100, verbose=False, plot=False):
         it = []

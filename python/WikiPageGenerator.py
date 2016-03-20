@@ -1,12 +1,11 @@
+from __future__ import print_function
 from collections import OrderedDict
 import theano.tensor as T
 import theano
 import numpy as np
 import numpy
-from pybrain.tools.customxml.networkwriter import NetworkWriter
-from pybrain.tools.customxml.networkreader import NetworkReader
 import matplotlib.pyplot as plt
-import urllib.request
+#import urllib.request
 
 ARRAYMODE=True
 
@@ -58,9 +57,7 @@ def convertPageToArrays(html):
 	y.itemset((y.shape[0]-1, y.shape[1]-1), 1)
 	return (x, y)
 
-print(convertPageToArrays(getPage()))
 
-input('how big?')
 
 
 #WIKI PAGE PART 2
@@ -76,7 +73,8 @@ class LSTMLayer:
 		self.cell_size = cell_size
 		self.C = theano.shared(value=np.zeros((1, cell_size)), name='LongTerm')
 		self.h = theano.shared(value=np.zeros((1, out_size)), name='Previous Prediction')
-		x = T.dmatrix(name='input')
+		inputData = T.tensor3(name='Actual Input')
+		x = T.dmatrix(name='input example')
 
 		#Forget gate
 		self.W_xf = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to forget gate')
@@ -130,10 +128,14 @@ class LSTMLayer:
 		self.predict = theano.function([x], output, name='predict', updates=[(self.C, cell_state[-1]),
 			(self.h, hidden[-1])])
 
-		y = T.dmatrix()
+		y = T.dmatrix(name='output')
 		self.error = -T.mean((y)*T.log(output) + (1-y)*T.log(1-output))
 		self.J = theano.function([x, y], self.error)
-		defineGradients()
+		self.gradients = T.grad(cost=self.error, wrt=self.params)
+		gradUpdates = OrderedDict((p, p - self.alpha * g) for p, g in zip(self.params, self.gradients))
+		self.learn = theano.function([x, y], outputs=self.error, updates=gradUpdates)
+
+		theano.printing.pydotprint(self.predict, outfile='lstm.png')
 
 	def defineGradients(self):
 		self.gradients = T.grad(cost=self.error, wrt=self.params)
@@ -153,3 +155,5 @@ class LSTMLayer:
 		for i in range(iterations):
 			self.reset()
 			print (self.learn(x,y))
+
+test = LSTMLayer(11, 12)
