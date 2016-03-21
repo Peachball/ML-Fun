@@ -6,8 +6,12 @@ import struct
 import theano
 from theano import tensor as T
 from theano import pp
+from theano import config
 import numpy as np
 import collections
+
+theano.config.floatX = 'float64'
+np.random.seed(1233)
 
 class FFNet:
     def __init__(self, *dim, **kwargs):
@@ -29,28 +33,31 @@ class FFNet:
             bias = init_size * (np.random.rand(dim[i+1]) - 0.5)
 
             if rprop:
-                mw = 0.1 * np.ones((dim[i], dim[i+1]))
-                mb = 0.1 * np.ones((dim[i+1]))
-                self.deltaw.append(theano.shared(value=mw, name='weight delta'))
-                self.deltab.append(theano.shared(value=mb, name='bias delta'))
-                self.prevStepw.append(theano.shared(value=np.zeros((dim[i], dim[i+1])), name='weight prev'))
-                self.prevStepb.append(theano.shared(value=np.zeros(dim[i+1]), name='bias prev'))
+                mw = 0.1 * np.ones((dim[i], dim[i+1]), dtype=config.floatX)
+                mb = 0.1 * np.ones((dim[i+1]), dtype=config.floatX)
+                self.deltaw.append(theano.shared(value=mw, name='weight \
+                    delta').astype(config.floatX))
+                self.deltab.append(theano.shared(value=mb, name='bias delta').astype(config.floatX))
+                self.prevStepw.append(theano.shared(value=np.zeros((dim[i], dim[i+1]),
+                    dtype=config.floatX), name='weight prev').astype(config.floatX))
+                self.prevStepb.append(theano.shared(value=np.zeros(dim[i+1], dtype=config.floatX),
+                    name='bias prev').astype(config.floatX))
             else:
-                mw = np.zeros((dim[i], dim[i+1]))
-                mb = np.zeros((dim[i+1]))
-            self.momentumb.append(theano.shared(value=mb, name='Bias \
-                momentum'))
-            self.momentumw.append(theano.shared(value=mw, name='Weight \
-                momentum'))
+                mw = np.zeros((dim[i], dim[i+1]), dtype=config.floatX)
+                mb = np.zeros((dim[i+1]), dtype=config.floatX)
+                self.momentumb.append(theano.shared(value=mb, name='Bias \
+                    momentum').astype(config.floatX))
+                self.momentumw.append(theano.shared(value=mw, name='Weight \
+                    momentum').astype(config.floatX))
             self.W.append(theano.shared(value=weight, name=('Weight' +
-                str(i))))
+                str(i))).astype(config.floatX))
             self.b.append(theano.shared(value=bias, name=('Bias' +
-                str(i))))
+                str(i))).astype(config.floatX))
 
-        self.momentum = kwargs.get('momentum', 0)
+        self.momentum = theano.shared(kwargs.get('momentum', 0)).astype(config.floatX)
 
-        X = T.dmatrix('input')
-        y = T.dmatrix('output')
+        X = T.matrix('input')
+        y = T.matrix('output')
         a = []
         a.append(X)
         for w, bias in zip(self.W, self.b):
@@ -62,7 +69,7 @@ class FFNet:
         self.J = theano.function([X, y], self.error)
 #        self.showHidden = theano.function([X], hidden, mode='DebugMode')
 
-        self.alpha = theano.shared(kwargs.get('alpha', 0.01))
+        self.alpha = theano.shared(kwargs.get('alpha', 0.01)).astype(config.floatX)
         g_b = []
         g_w = []
         updates = []
@@ -71,20 +78,30 @@ class FFNet:
                     self.deltab, self.prevStepw, self.prevStepb):
                 g_w.append(T.grad(self.error, w))
                 g_b.append(T.grad(self.error, bias))
-                simW = ((prevw > 0) & (g_w[-1] > 0)) | ((prevw < 0) & (g_w[-1] < 0))
-                diffW = ((prevw > 0) ^ (g_w[-1] > 0)) & (T.neq(prevw, 0) & T.neq(g_w[-1], 0))
-                deltaw = T.switch(simW, deltaw * 1.2, deltaw)
-                deltaw = T.switch(diffW, deltaw * 0.5, deltaw)
-                updates.append((w, w - T.sgn(g_w[-1]) * deltaw * (~diffW)))
+                #Array describing which values are when gradients are both positive or both negative
+                simW = T.neq((T.eq((prevw > 0), (g_w[-1] > 0))), (T.eq((prevw < 0), (g_w[-1] <
+                    0))))
 
-                simB = ((prevb > 0) & (g_b[-1] > 0)) | ((prevb < 0) & (g_b[-1] < 0))
-                diffB = ((prevb > 0) ^ (g_b[-1] > 0)) & (T.neq(prevb, 0) & T.neq(g_b[-1], 0))
-                deltab = T.switch(simB, deltab * 1.2, deltab)
-                deltab = T.switch(diffB, deltab * 0.5, deltab)
-                updates.append((bias, bias - (T.sgn(g_b[-1]) * deltab * (~diffB))))
+                #Array describing which values are when gradients are in opposite directions
+                diffW = ((prevw > 0) ^ (g_w[-1] > 0)) * (T.neq(prevw, 0) * T.neq(g_w[-1], 0))
 
-                updates.append((prevw, g_w[-1] * (~diffW)))
-                updates.append((prevb, g_b[-1] * (~diffB)))
+                updates.append((w, w - (T.sgn(g_w[-1]) * deltaw * (T.eq(diffW, 0)))))
+                updates.append((deltaw, T.switch(diffW, deltaw *
+                    0.5, T.switch(simW, deltaw * 1.2, deltaw))))
+
+                #Array describing which values are when gradients are both positive or both negative
+                simB = T.neq((T.eq((prevb > 0), (g_b[-1] > 0))), (T.eq((prevb < 0), (g_b[-1] <
+                    0))))
+
+                #Array describing which values are when gradients are in opposite directions
+                diffB = ((prevb > 0) ^ (g_b[-1] > 0)) * (T.neq(prevb, 0) * T.neq(g_b[-1], 0))
+
+                updates.append((bias, bias - (T.sgn(g_b[-1]) * deltab * (T.eq(diffB, 0)))))
+                updates.append((deltab, T.switch(diffB, deltab *
+                    0.5, T.switch(simB, deltab * 1.2, deltab))))
+
+                updates.append((prevb, (T.sgn(g_b[-1]) * deltab * (T.eq(diffB, 0)))))
+                updates.append((prevw, (T.sgn(g_w[-1]) * deltaw * (T.eq(diffW, 0)))))
         else:
             for (w, bias, mw, mb) in zip(self.W, self.b, self.momentumw, self.momentumb):
                 g_w.append(T.grad(self.error, w))
@@ -93,11 +110,9 @@ class FFNet:
                 updates.append((mw, self.momentum * mw + self.alpha * g_w[-1]))
                 updates.append((w, w - mw))
                 updates.append((bias, bias - mb))
-        '''
-        weight_grad = theano.printing.Print('Intermediate weight gradient')(g_w[0])
-        bias_grad = theano.printing.Print('Intermediate bias gradient')(g_b[0])
+        weight_grad = theano.printing.Print('Intermediate weight gradient')(g_w[-1])
+        bias_grad = theano.printing.Print('Intermediate bias gradient')(g_b[-1])
         self.getGrad= theano.function([X, y], [weight_grad, bias_grad])
-        '''
         self.learn = theano.function([X, y], self.error, updates=updates)
 
     def batchLearning(self, X, y, iterations=100, verbose=False, plot=False):
@@ -209,17 +224,17 @@ def percentError(net, x, y):
     accuracy = np.sum(np.equal(ans, p))
     return (accuracy, y.shape[0])
 
-x, y = readMNISTData(100)
+x, y = readMNISTData(1000)
 
 xcv, ycv = readcv()
 
 xor = np.array([[0,0],[0,1],[1,0],[1,1]])
 yor = np.array([[0],[1],[1],[0]])
 
-handwriting = FFNet(28**2, 1000, 10, alpha=0.01, momentum=0.9, init_size=0.1, rprop=True)
+handwriting = FFNet(28**2, 300, 10, alpha=0.01, momentum=0.9, init_size=0.1, rprop=True)
 #xornetwork = FFNet(2, 2, 1, alpha=0.1, init_values=1)
 
-handwriting.batchLearning(x, y, verbose=True, plot=True, iterations=100)
+handwriting.converge(x, y, verbose=True, plot=True, maxError=1e-1)
 print(percentError(handwriting, xcv, ycv))
 
 i = 0

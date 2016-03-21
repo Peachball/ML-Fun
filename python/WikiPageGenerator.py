@@ -6,9 +6,11 @@ import theano
 import numpy as np
 import numpy
 import matplotlib.pyplot as plt
-#import urllib.request
+from theano import config
+import urllib.request
 
 ARRAYMODE=True
+config.floatX='float64'
 
 def createWebpage(lstm, filename, maxChars=10000, array=False):
 	print('Writing to file...')
@@ -47,7 +49,7 @@ def getPage():
 	response = urllib.request.urlopen('http://en.wikipedia.org/wiki/Special:Random')
 	return response.read()
 
-def convertPageToArrays(html):
+def convertPageToArrays(html=getPage()):
 	convertedData=[]
 	for char in html:
 		charList = [0]*256
@@ -68,7 +70,7 @@ class LSTMLayer:
 		This assumes that in this recurrent net, there is a corresponding output to each input
 	'''
 	def __init__(self, in_size, out_size, cell_size=None, alpha=0.01, init_size=0.1,
-			out_type='sigmoid', momentum=0):
+			out_type='sigmoid', momentum=0, rprop=False):
 		if cell_size == None:
 			cell_size = in_size * 10
 		self.alpha = alpha
@@ -78,7 +80,7 @@ class LSTMLayer:
 		self.C = theano.shared(value=np.zeros((1, cell_size)), name='LongTerm')
 		self.h = theano.shared(value=np.zeros((1, out_size)), name='Previous Prediction')
 		self.momentum = momentum
-		x = T.dmatrix(name='input example')
+		x = T.matrix(name='input example')
 
 		#Forget gate
 		self.W_xf = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to forget gate')
@@ -110,30 +112,41 @@ class LSTMLayer:
 		self.W_xo = theano.shared(value=init_size*np.random.rand(in_size, out_size), name='x to out')
 		self.b_o = theano.shared(value=init_size*np.random.rand(1, out_size), name='out bias')
 
+		#Hidden
+		self.W_ch = theano.shared(value=init_size*np.random.rand(cell_size, out_size), name='cell to hidden')
+		self.W_hh = theano.shared(value=init_size*np.random.rand(out_size, out_size), 
+			name='hidden to hidden')
+		self.W_xh =theano.shared(value=init_size*np.random.rand(in_size, out_size), name='x to hidden')
+		self.b_h =theano.shared(value=init_size*np.random.rand(1, out_size), name='bias for hidden')
+
+
 		self.params = [self.W_xf, self.W_hf, self.W_cf, self.b_f, self.W_hm, self.W_xm, self.b_m,
 				self.W_hr, self.W_cr, self.W_xr, self.b_r, self.W_co, self.W_ho,
-				self.W_xo, self.b_o]
+				self.W_xo, self.b_o, self.W_ch, self.W_hh, self.W_xh, self.b_h]
 
 		def recurrence(x, h_tm1, c_tm1):
 			rem = T.nnet.sigmoid(T.dot( h_tm1, self.W_hr) + T.dot( c_tm1 , self.W_cr) + T.dot( x, self.W_xr) + self.b_r)
 			mem = T.tanh(T.dot( h_tm1, self.W_hm) + T.dot( x, self.W_xm) + self.b_m)
 			forget = T.nnet.sigmoid(T.dot( h_tm1, self.W_hf) + T.dot( c_tm1, self.W_cf) + T.dot( x, self.W_xf) + self.b_f)
 
-			z = T.dot( c_tm1 , self.W_co) + T.dot( h_tm1 , self.W_ho) + T.dot(x, self.W_xo) + self.b_o
+			z = T.dot(c_tm1 , self.W_co) + T.dot( h_tm1 , self.W_ho) + T.dot(x, self.W_xo) + self.b_o
+			h_t = T.nnet.sigmoid(T.dot(c_tm1, self.W_ch) + T.dot(h_tm1, self.W_hh) + T.dot(x,
+				self.W_xh) + self.b_h)
+			out = z
 			if out_type=='sigmoid':
-				h_t = T.nnet.sigmoid(z)
+				out = T.nnet.sigmoid(z)
 			elif out_type=='linear':
-				h_t = z
+				out = z
 
 			c_t = self.C * forget + rem * mem
-			return [h_t, c_t]
+			return [z, h_t, c_t]
 
-		([hidden, cell_state], _) = theano.scan(fn=recurrence, 
+		([actualOutput, hidden, cell_state], _) = theano.scan(fn=recurrence, 
 				sequences=x, 
-				outputs_info=[self.h, self.C],
+				outputs_info=[None, self.h, self.C],
 				n_steps=x.shape[0])
 
-		output = hidden.reshape((hidden.shape[0], hidden.shape[2]))
+		output = actualOutput.reshape((actualOutput.shape[0], actualOutput.shape[2]))
 		self.predict = theano.function([x], output, name='predict', updates=[(self.C, cell_state[-1]),
 			(self.h, hidden[-1])])
 
@@ -146,13 +159,36 @@ class LSTMLayer:
 		self.J = theano.function([x, y], self.error)
 		self.gradients = []
 		self.mparams = []
-		for p in self.params:
-			self.gradients.append(T.grad(self.error, p))
-			self.mparams.append(theano.shared(np.zeros(p.get_value().shape), name='momentum bs'))
-		gradUpdates = OrderedDict((p, p - g) for p, g in zip(self.params, self.mparams))
-		gradUpdates.update(OrderedDict((m, self.momentum * m + self.alpha * g) for m, g in
-			zip(self.mparams, self.gradients)))
-		self.learn = theano.function([x, y], outputs=self.error, updates=gradUpdates)
+		if rprop:
+			self.prevw = []
+			self.deltaw = []
+			updates = []
+			#initalize stuff
+			for p in self.params:
+				self.prevw.append(theano.shared(np.zeros(p.get_value().shape)).astype(config.floatX))
+				self.deltaw.append(theano.shared(0.1 * np.ones(p.get_value().shape)).astype(config.floatX))
+			for p, dw, pw in zip(self.params, self.deltaw, self.prevw):
+				self.gradients.append(T.grad(self.error, p))
+				#Array describing which values are when gradients are both positive or both negative
+				simW = T.neq((T.eq((pw > 0), (self.gradients[-1] > 0))), (T.eq((pw < 0), (self.gradients[-1] <
+					0))))
+
+				#Array describing which values are when gradients are in opposite directions
+				diffW = ((pw > 0) ^ (self.gradients[-1] > 0)) * (T.neq(pw, 0) * T.neq(self.gradients[-1], 0))
+				updates.append((p, p - (T.sgn(self.gradients[-1]) * dw * (T.eq(diffW, 0)))))
+				updates.append((dw, T.switch(diffW, dw *
+					0.5, T.switch(simW, dw * 1.2, dw))))
+				updates.append((pw, (T.sgn(self.gradients[-1]) * dw * (T.eq(diffW, 0)))))
+			self.learn = theano.function([x, y], outputs=self.error, updates=updates)
+
+		else:
+			for p in self.params:
+				self.gradients.append(T.grad(self.error, p))
+				self.mparams.append(theano.shared(np.zeros(p.get_value().shape), name='momentum bs'))
+			gradUpdates = OrderedDict((p, p - g) for p, g in zip(self.params, self.mparams))
+			gradUpdates.update(OrderedDict((m, self.momentum * m + self.alpha * g) for m, g in
+				zip(self.mparams, self.gradients)))
+			self.learn = theano.function([x, y], outputs=self.error, updates=gradUpdates)
 
 	def defineGradients(self):
 		self.gradients = T.grad(cost=self.error, wrt=self.params)
@@ -179,14 +215,15 @@ def testLSTM():
 	x = np.array(x).reshape(len(x), 1)
 	y = np.array(y).reshape(len(y), 1)
 
-	lstm_test = LSTMLayer(1, 1, out_type='linear', momentum=0.5, alpha=0.01)
+	lstm_test = LSTMLayer(1, 1, out_type='linear', momentum=0.5, alpha=0.01, rprop=True,
+			cell_size=100)
 	print('Testing its prediction function')
 	lstm_test.predict(x)
 	print('Testing learning function')
 	i = 1
 	iterations = 0
 	train_error = []
-	while i > 1e-2:
+	while i > 1e-4:
 		print(lstm_test.learn(x, y))
 		i = lstm_test.learn(x, y)
 		train_error.append(lstm_test.learn(x, y))
