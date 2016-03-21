@@ -1,4 +1,5 @@
 from __future__ import print_function
+import math
 from collections import OrderedDict
 import theano.tensor as T
 import theano
@@ -66,14 +67,15 @@ class LSTMLayer:
 	'''
 		This assumes that in this recurrent net, there is a corresponding output to each input
 	'''
-	def __init__(self, in_size, out_size, cell_size=1000, alpha=0.01, init_size=0.1):
+	def __init__(self, in_size, out_size, cell_size=10, alpha=0.01, init_size=0.1,
+			out_type='sigmoid', momentum=0):
 		self.alpha = alpha
 		self.in_size = in_size
 		self.out_size = out_size
 		self.cell_size = cell_size
 		self.C = theano.shared(value=np.zeros((1, cell_size)), name='LongTerm')
 		self.h = theano.shared(value=np.zeros((1, out_size)), name='Previous Prediction')
-		inputData = T.tensor3(name='Actual Input')
+		self.momentum = momentum
 		x = T.dmatrix(name='input example')
 
 		#Forget gate
@@ -115,7 +117,12 @@ class LSTMLayer:
 			mem = T.tanh(T.dot( h_tm1, self.W_hm) + T.dot( x, self.W_xm) + self.b_m)
 			forget = T.nnet.sigmoid(T.dot( h_tm1, self.W_hf) + T.dot( c_tm1, self.W_cf) + T.dot( x, self.W_xf) + self.b_f)
 
-			h_t = T.nnet.sigmoid(T.dot( c_tm1 , self.W_co) + T.dot( h_tm1 , self.W_ho) + T.dot(x, self.W_xo) + self.b_o)
+			z = T.dot( c_tm1 , self.W_co) + T.dot( h_tm1 , self.W_ho) + T.dot(x, self.W_xo) + self.b_o
+			if out_type=='sigmoid':
+				h_t = T.nnet.sigmoid(z)
+			elif out_type=='linear':
+				h_t = z
+
 			c_t = self.C * forget + rem * mem
 			return [h_t, c_t]
 
@@ -129,13 +136,21 @@ class LSTMLayer:
 			(self.h, hidden[-1])])
 
 		y = T.dmatrix(name='output')
-		self.error = -T.mean((y)*T.log(output) + (1-y)*T.log(1-output))
-		self.J = theano.function([x, y], self.error)
-		self.gradients = T.grad(cost=self.error, wrt=self.params)
-		gradUpdates = OrderedDict((p, p - self.alpha * g) for p, g in zip(self.params, self.gradients))
-		self.learn = theano.function([x, y], outputs=self.error, updates=gradUpdates)
 
-		theano.printing.pydotprint(self.predict, outfile='lstm.png')
+		if out_type=='sigmoid':
+			self.error = -T.mean((y)*T.log(output) + (1-y)*T.log(1-output))
+		elif out_type=='linear':
+			self.error = T.mean(T.sqr(y - output))
+		self.J = theano.function([x, y], self.error)
+		self.gradients = []
+		self.mparams = []
+		for p in self.params:
+			self.gradients.append(T.grad(self.error, p))
+			self.mparams.append(theano.shared(np.zeros(p.get_value().shape), name='momentum bs'))
+		gradUpdates = OrderedDict((p, p - g) for p, g in zip(self.params, self.mparams))
+		gradUpdates.update(OrderedDict((m, self.momentum * m + self.alpha * g) for m, g in
+			zip(self.mparams, self.gradients)))
+		self.learn = theano.function([x, y], outputs=self.error, updates=gradUpdates)
 
 	def defineGradients(self):
 		self.gradients = T.grad(cost=self.error, wrt=self.params)
@@ -151,9 +166,33 @@ class LSTMLayer:
 		self.C.set_value(np.zeros((1, self.cell_size)))
 		self.h.set_value(np.zeros((1, self.out_size)))
 	
-	def batchLearning(self, x, y, iterations=100):
-		for i in range(iterations):
-			self.reset()
-			print (self.learn(x,y))
+def testLSTM():
+	#Generate sinx dataset
+	x = []
+	y = []
+	for i in np.linspace(0, 10, 100):
+		x.append(i)
+		y.append(math.sin(i))
+	plt.plot(x, y)
+	x = np.array(x).reshape(len(x), 1)
+	y = np.array(y).reshape(len(y), 1)
 
-test = LSTMLayer(11, 12)
+	lstm_test = LSTMLayer(1, 1, out_type='linear', momentum=0.5)
+	print('Testing its prediction function')
+	lstm_test.predict(x)
+	print('Testing learning function')
+	i = 1
+	iterations = 0
+	train_error = []
+	while i > 1e-1:
+		print(lstm_test.learn(x, y))
+		i = lstm_test.learn(x, y)
+		train_error.append(lstm_test.learn(x, y))
+		iterations += 1
+	print('Trained predictions:')
+	plt.plot(np.linspace(0, 10, 100), lstm_test.predict(x))
+	plt.figure()
+	plt.plot(np.arange(iterations), train_error)
+	plt.show()
+
+testLSTM()

@@ -17,14 +17,27 @@ class FFNet:
         self.b = []
         self.momentumb = []
         self.momentumw = []
-
+        rprop = kwargs.get('rprop', False)
         init_size = kwargs.get('init_size', 0.01)
+        if rprop:
+            self.prevStepb = []
+            self.prevStepw = []
+            self.deltaw = []
+            self.deltab = []
         for i in range(len(dim)-1):
             weight = init_size * ( np.random.rand(dim[i], dim[i+1]) - 0.5)
             bias = init_size * (np.random.rand(dim[i+1]) - 0.5)
 
-            mw = np.zeros((dim[i], dim[i+1]))
-            mb = np.zeros((dim[i+1]))
+            if rprop:
+                mw = 0.1 * np.ones((dim[i], dim[i+1]))
+                mb = 0.1 * np.ones((dim[i+1]))
+                self.deltaw.append(theano.shared(value=mw, name='weight delta'))
+                self.deltab.append(theano.shared(value=mb, name='bias delta'))
+                self.prevStepw.append(theano.shared(value=np.zeros((dim[i], dim[i+1])), name='weight prev'))
+                self.prevStepb.append(theano.shared(value=np.zeros(dim[i+1]), name='bias prev'))
+            else:
+                mw = np.zeros((dim[i], dim[i+1]))
+                mb = np.zeros((dim[i+1]))
             self.momentumb.append(theano.shared(value=mb, name='Bias \
                 momentum'))
             self.momentumw.append(theano.shared(value=mw, name='Weight \
@@ -53,22 +66,39 @@ class FFNet:
         g_b = []
         g_w = []
         updates = []
-        i = 0
-        for (w, bias, mw, mb) in zip(self.W, self.b, self.momentumw, self.momentumb):
-            g_w.append(T.grad(self.error, w))
-            g_b.append(T.grad(self.error, bias))
-            updates.append((mb, self.momentum * mb + self.alpha * g_b[-1]))
-            updates.append((mw, self.momentum * mw + self.alpha * g_w[-1]))
-            updates.append((w, w - mw))
-            updates.append((bias, bias - mb))
-            i = i + 1
+        if rprop:
+            for (w, bias, deltaw, deltab, prevw, prevb) in zip(self.W, self.b, self.deltaw,
+                    self.deltab, self.prevStepw, self.prevStepb):
+                g_w.append(T.grad(self.error, w))
+                g_b.append(T.grad(self.error, bias))
+                simW = ((prevw > 0) & (g_w[-1] > 0)) | ((prevw < 0) & (g_w[-1] < 0))
+                diffW = ((prevw > 0) ^ (g_w[-1] > 0)) & (T.neq(prevw, 0) & T.neq(g_w[-1], 0))
+                deltaw = T.switch(simW, deltaw * 1.2, deltaw)
+                deltaw = T.switch(diffW, deltaw * 0.5, deltaw)
+                updates.append((w, w - T.sgn(g_w[-1]) * deltaw * (~diffW)))
+
+                simB = ((prevb > 0) & (g_b[-1] > 0)) | ((prevb < 0) & (g_b[-1] < 0))
+                diffB = ((prevb > 0) ^ (g_b[-1] > 0)) & (T.neq(prevb, 0) & T.neq(g_b[-1], 0))
+                deltab = T.switch(simB, deltab * 1.2, deltab)
+                deltab = T.switch(diffB, deltab * 0.5, deltab)
+                updates.append((bias, bias - (T.sgn(g_b[-1]) * deltab * (~diffB))))
+
+                updates.append((prevw, g_w[-1] * (~diffW)))
+                updates.append((prevb, g_b[-1] * (~diffB)))
+        else:
+            for (w, bias, mw, mb) in zip(self.W, self.b, self.momentumw, self.momentumb):
+                g_w.append(T.grad(self.error, w))
+                g_b.append(T.grad(self.error, bias))
+                updates.append((mb, self.momentum * mb + self.alpha * g_b[-1]))
+                updates.append((mw, self.momentum * mw + self.alpha * g_w[-1]))
+                updates.append((w, w - mw))
+                updates.append((bias, bias - mb))
         '''
         weight_grad = theano.printing.Print('Intermediate weight gradient')(g_w[0])
         bias_grad = theano.printing.Print('Intermediate bias gradient')(g_b[0])
         self.getGrad= theano.function([X, y], [weight_grad, bias_grad])
         '''
         self.learn = theano.function([X, y], self.error, updates=updates)
-        theano.printing.pydotprint(self.learn, outfile='ffnet.png')
 
     def batchLearning(self, X, y, iterations=100, verbose=False, plot=False):
         it = []
@@ -179,25 +209,25 @@ def percentError(net, x, y):
     accuracy = np.sum(np.equal(ans, p))
     return (accuracy, y.shape[0])
 
-x, y = readMNISTData(20000)
+x, y = readMNISTData(100)
 
 xcv, ycv = readcv()
 
 xor = np.array([[0,0],[0,1],[1,0],[1,1]])
 yor = np.array([[0],[1],[1],[0]])
 
-handwriting = FFNet(28**2, 1000, 10, momentum=0.5, alpha=0.01)
-xornetwork = FFNet(2, 2, 1, alpha=0.1, init_values=1)
+handwriting = FFNet(28**2, 1000, 10, alpha=0.01, momentum=0.9, init_size=0.1, rprop=True)
+#xornetwork = FFNet(2, 2, 1, alpha=0.1, init_values=1)
 
-handwriting.converge(x, y, verbose=True, plot=True)
+handwriting.batchLearning(x, y, verbose=True, plot=True, iterations=100)
 print(percentError(handwriting, xcv, ycv))
 
 i = 0
-while raw_input('Guess') != 'q':
+while True:
     image = xcv[i,:]
     image = image.reshape(28, 28)
     plt.imshow(image, cmap='Greys')
     plt.show()
-    print('Computer predicts: ' + str(np.argmax(handwriting.predict(ycv[i,:]))))
+    print('Computer predicts: ' + str(np.argmax(handwriting.predict(xcv[i,:].reshape(1, 28**2)))))
     print('Acutal: ' + str(np.argmax(ycv[i,:])))
     i += 1
