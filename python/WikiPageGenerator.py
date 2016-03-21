@@ -67,8 +67,10 @@ class LSTMLayer:
 	'''
 		This assumes that in this recurrent net, there is a corresponding output to each input
 	'''
-	def __init__(self, in_size, out_size, cell_size=10, alpha=0.01, init_size=0.1,
+	def __init__(self, in_size, out_size, cell_size=None, alpha=0.01, init_size=0.1,
 			out_type='sigmoid', momentum=0):
+		if cell_size == None:
+			cell_size = in_size * 10
 		self.alpha = alpha
 		self.in_size = in_size
 		self.out_size = out_size
@@ -177,14 +179,14 @@ def testLSTM():
 	x = np.array(x).reshape(len(x), 1)
 	y = np.array(y).reshape(len(y), 1)
 
-	lstm_test = LSTMLayer(1, 1, out_type='linear', momentum=0.5)
+	lstm_test = LSTMLayer(1, 1, out_type='linear', momentum=0.5, alpha=0.01)
 	print('Testing its prediction function')
 	lstm_test.predict(x)
 	print('Testing learning function')
 	i = 1
 	iterations = 0
 	train_error = []
-	while i > 1e-1:
+	while i > 1e-2:
 		print(lstm_test.learn(x, y))
 		i = lstm_test.learn(x, y)
 		train_error.append(lstm_test.learn(x, y))
