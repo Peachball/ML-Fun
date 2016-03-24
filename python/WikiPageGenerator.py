@@ -318,14 +318,14 @@ class LSTM():
 		if verbose:
 			print('Finished initalization')
 	
-def testLSTM():
+def testLSTM(graphs=True):
 	#Generate sinx dataset
 	x = []
 	y = []
 	for i in np.linspace(0, 10, 100):
 		x.append(i)
 		y.append(math.sin(i))
-	plt.plot(x, y)
+	if graphs: plt.plot(x, y)
 	x = np.array(x).reshape(len(x), 1)
 	y = np.array(y).reshape(len(y), 1)
 
@@ -343,9 +343,10 @@ def testLSTM():
 		train_error.append(lstm_test.learn(x, y))
 		iterations += 1
 	print('Trained predictions:')
-	plt.plot(np.linspace(0, 10, 100), lstm_test.predict(x))
-	plt.figure()
-	plt.plot(np.arange(iterations), train_error)
-	plt.show()
+	if graphs:
+		plt.plot(np.linspace(0, 10, 100), lstm_test.predict(x))
+		plt.figure()
+		plt.plot(np.arange(iterations), train_error)
+		plt.show()
 
-testLSTM()
+testLSTM(graphs=False)
