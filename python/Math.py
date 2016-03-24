@@ -40,4 +40,6 @@ def EulersMethod(startX, startY, stepSize, derivative, endX):
 def dxdy(x, y):
     return 0.0015 * (y) * (1 - (y/6000))
 
+plotVectorField(dxdy)
+
 plt.show()

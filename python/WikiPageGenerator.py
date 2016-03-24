@@ -55,8 +55,8 @@ def convertPageToArrays(html=getPage()):
 		charList = [0]*256
 		charList[char] = 1
 		convertedData.append(charList)
-	x = np.array(convertedData)
-	y = np.append(x, np.zeros((x.shape[0], 1)), axis=1)
+	x = np.array(convertedData[:-1])
+	y = np.append(np.array(convertedData[1:]), np.zeros((x.shape[0], 1)), axis=1)
 	y.itemset((y.shape[0]-1, y.shape[1]-1), 1)
 	return (x, y)
 
@@ -89,32 +89,44 @@ class LSTMLayer:
 			print('Constants have been initalized')
 
 		#Forget gate
-		self.W_xf = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to forget gate')
-		self.W_hf = theano.shared(value=init_size*np.random.rand(out_size, cell_size), name='h to forget gate')
-		self.W_cf = theano.shared(value=init_size*np.random.rand(cell_size, cell_size), name='cell to forget gate')
-		self.b_f = theano.shared(init_size*np.random.rand(1, cell_size), name='forget bias')
+		self.W_xf = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to \
+				forget gate').astype(config.floatX)
+		self.W_hf = theano.shared(value=init_size*np.random.rand(out_size, cell_size), name='h to \
+				forget gate').astype(config.floatX)
+		self.W_cf = theano.shared(value=init_size*np.random.rand(cell_size, cell_size), name='cell \
+				to forget gate').astype(config.floatX)
+		self.b_f = theano.shared(init_size*np.random.rand(1, cell_size), name='forget \
+				bias').astype(config.floatX)
 
 #		forget = T.nnet.sigmoid(T.dot(self.h, self.W_hf) + T.dot(self.C, self.W_cf) + T.dot(self.x, self.W_xf) + self.b_f)
 
 		#Memories
-		self.W_hm = theano.shared(value=init_size*np.random.rand(out_size, cell_size), name='h to memories')
-		self.W_xm = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to memories')
-		self.b_m = theano.shared(init_size*np.random.rand(1, cell_size), name='memory bias')
+		self.W_hm = theano.shared(value=init_size*np.random.rand(out_size, cell_size), name='h to \
+				memories').astype(config.floatX)
+		self.W_xm = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to \
+				memories').astype(config.floatX)
+		self.b_m = theano.shared(init_size*np.random.rand(1, cell_size), name='memory \
+				bias').astype(config.floatX)
 
 #		memories = T.tanh(T.dot(self.h, self.W_hm) + T.dot(self.x, self.W_xm) + self.b_m)
 
 		#Remember Gate
-		self.W_hr = theano.shared(value=init_size*np.random.rand(out_size, cell_size), name='h to remember')
+		self.W_hr = theano.shared(value=init_size*np.random.rand(out_size, cell_size), name='h to \
+				remember').astype(config.floatX)
 		self.W_cr = theano.shared(value=init_size*np.random.rand(cell_size, cell_size), name='cell to \
-		remember')
-		self.W_xr = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to remember')
-		self.b_r = theano.shared(value=init_size*np.random.rand(1, cell_size), name='remember bias')
+		remember').astype(config.floatX)
+		self.W_xr = theano.shared(value=init_size*np.random.rand(in_size, cell_size), name='x to \
+				remember').astype(config.floatX)
+		self.b_r = theano.shared(value=init_size*np.random.rand(1, cell_size), name='remember \
+				bias').astype(config.floatX)
 
 #		remember = T.nnet.sigmoid(T.dot(self.h, self.W_hr) + T.dot(self.C, self.W_cr) + T.dot(self.x, self.W_xr) + self.b_r)
 
 		#Output
-		self.W_co = theano.shared(value=init_size*np.random.rand(cell_size, out_size), name='cell to out')
-		self.W_ho = theano.shared(value=init_size*np.random.rand(out_size, out_size), name='hidden to out')
+		self.W_co = theano.shared(value=init_size*np.random.rand(cell_size, out_size), 
+			name='cell to out').astype(config.floatX)
+		self.W_ho = theano.shared(value=init_size*np.random.rand(out_size, out_size),
+			name='hidden to out').astype(config.floatX)
 		self.W_xo = theano.shared(value=init_size*np.random.rand(in_size, out_size), name='x to out')
 		self.b_o = theano.shared(value=init_size*np.random.rand(1, out_size), name='out bias')
 
@@ -232,7 +244,7 @@ class LSTM():
 
 	def __init__(self, *dim, **kwargs):
 		self.alpha = kwargs.get('alpha', 0.01)
-		self.momentum = kwargs.get('alpha', 0)
+		self.momentum = kwargs.get('momentum', 0)
 		rprop = kwargs.get('rprop', False)
 		out_type = kwargs.get('out_type', 'sigmoid')
 		self.layers = []
@@ -243,6 +255,9 @@ class LSTM():
 		for i in range(1, len(dim) - 1):
 			self.layers.append(LSTMLayer(dim[i], dim[i+1], no_compile=True, 
 				in_var=self.layers[-1].out))
+			if i == len(dim)-2:
+				self.layers[-1] = LSTMLayer(dim[i], dim[i+1], no_compile=True,
+						in_var=self.layers[-2].out, out_type=out_type)
 		
 
 		if verbose: 
@@ -276,25 +291,32 @@ class LSTM():
 
 		if verbose:
 			print('Defining Gradients')
-		#Define gradients
-		self.gradients = []
-		for p in self.params:
-			self.gradients.append(T.grad(cost=self.error, wrt=p))
 
 		#Set training functions:
 		if rprop:
+			self.gradients = []
 			deltaw = []
 			prevw = []
 			updates = []
+
+			#Create gradients stuffs
+			self.summedGradients = []
 
 			#initalize stuff
 			for p in self.params:
 				prevw.append(theano.shared(np.zeros(p.get_value().shape)).astype(config.floatX))
 				deltaw.append(theano.shared(0.1 * np.ones(p.get_value().shape)).astype(config.floatX))
+				self.summedGradients.append(theano.shared(np.zeros(p.get_value().shape)).astype(config.floatX))
 
+			if verbose: print('Finished with the arbitrary array stuff in background')
+
+			gradUpdates = []
+			update_for_summed = []
+			param_num = 1
 			#Acutal algorithm
-			for p, dw, pw in zip(self.params, deltaw, prevw):
-				self.gradients.append(T.grad(self.error, p))
+			for p, dw, pw, sumGrad in zip(self.params, deltaw, prevw, self.summedGradients):
+				grad = T.grad(self.error, p)
+				self.gradients.append(grad)
 				#Array describing which values are when gradients are both positive or both negative
 				simW = T.neq((T.eq((pw > 0), (self.gradients[-1] > 0))), (T.eq((pw < 0), (self.gradients[-1] <
 					0))))
@@ -305,8 +327,33 @@ class LSTM():
 				updates.append((dw, T.switch(diffW, dw *
 					0.5, T.switch(simW, dw * 1.2, dw))))
 				updates.append((pw, (T.sgn(self.gradients[-1]) * dw * (T.eq(diffW, 0)))))
+
+
+				#Summed gradient stuff (for batch learning when not the entire input can be loaded)
+				#Array describing which values are when gradients are both positive or both negative
+				simG = T.neq((T.eq((pw > 0), (sumGrad > 0))), (T.eq((pw < 0), (sumGrad <
+					0))))
+
+				#Array describing which values are when gradients are in opposite directions
+				diffG = ((pw > 0) ^ (sumGrad > 0)) * (T.neq(pw, 0) * T.neq(sumGrad, 0))
+				update_for_summed.append((p, p - (T.sgn([-1]) * dw * (T.eq(diffW, 0)))))
+				update_for_summed.append((dw, T.switch(diffG, dw *
+					0.5, T.switch(simG, dw * 1.2, dw))))
+				update_for_summed.append((pw, (T.sgn(sumGrad) * dw * (T.eq(diffG, 0)))))
+				gradUpdates.append((sumGrad, sumGrad + grad))
+
+				if verbose:
+					print(('\r Finished gradients for ' + str(param_num) + ' out of ' +
+							str(len(self.params))), end="")
+					param_num += 1
+
 			self.learn = theano.function([x, y], self.error, updates=updates)
+			self.addToGradient = theano.function([x, y], self.error, updates=gradUpdates)
+			self.learnFromSummed = theano.function([x, y], self.error, updates=update_for_summed)
+			if verbose: print('\nDone with everything')
 		else:
+			self.mparams = []
+			self.gradients = []
 			for p in self.params:
 				self.gradients.append(T.grad(self.error, p))
 				self.mparams.append(theano.shared(np.zeros(p.get_value().shape), name='momentum bs'))
@@ -317,6 +364,11 @@ class LSTM():
 		
 		if verbose:
 			print('Finished initalization')
+
+		def resetGrad():
+			for sumGrad in self.summedGradients:
+				sumGrad.set_value(np.zeros(sumGrad.shape))
+
 	
 def testLSTM(graphs=True):
 	#Generate sinx dataset
@@ -329,7 +381,7 @@ def testLSTM(graphs=True):
 	x = np.array(x).reshape(len(x), 1)
 	y = np.array(y).reshape(len(y), 1)
 
-	lstm_test = LSTM(1, 10, 1, out_type='linear', momentum=0.5, alpha=0.01, rprop=True,
+	lstm_test = LSTM(1, 10, 1, out_type='linear', momentum=0.5, alpha=0.001, rprop=False,
 			cell_size=100, verbose=True)
 	print('Testing its prediction function')
 	lstm_test.predict(x)
@@ -350,3 +402,15 @@ def testLSTM(graphs=True):
 		plt.show()
 
 testLSTM(graphs=False)
+def wikiLearningTest():
+	x, y = convertPageToArrays()
+	lstm = LSTM(256, 300, 257, out_type='sigmoid', rprop=True, verbose=True)
+	i = 1
+	iterations = 0
+	train_error = []
+	while iterations < 10000:
+		print(lstm.learn(x, y))
+		i = lstm.learn(x, y)
+		train_error.append(lstm.learn(x,y))
+		iterations += 1
+	plt.plot(np.arange(iterations), train_error)
