@@ -69,7 +69,7 @@ class LSTMLayer:
 	'''
 		This assumes that in this recurrent net, there is a corresponding output to each input
 	'''
-	def __init__(self, in_size, out_size, cell_size=None, alpha=0.01, init_size=0.1,
+	def __init__(self, in_size, out_size, cell_size=None, alpha=0.01, init_size=0.01,
 			out_type='sigmoid', momentum=0, rprop=False, no_compile=False, in_var=None,
 			out_var=None, verbose=False):
 		if cell_size == None:
@@ -249,12 +249,13 @@ class LSTM():
 		out_type = kwargs.get('out_type', 'sigmoid')
 		self.layers = []
 		verbose = kwargs.get('verbose', False)
+		init_size = kwargs.get('init_size', 0.01)
 		x = T.matrix('Input')
 		y = T.matrix('Output')
 		self.layers.append(LSTMLayer(dim[0], dim[1], no_compile=True, in_var=x, verbose=False))
 		for i in range(1, len(dim) - 1):
 			self.layers.append(LSTMLayer(dim[i], dim[i+1], no_compile=True, 
-				in_var=self.layers[-1].out))
+				in_var=self.layers[-1].out, init_size=init_size))
 			if i == len(dim)-2:
 				self.layers[-1] = LSTMLayer(dim[i], dim[i+1], no_compile=True,
 						in_var=self.layers[-2].out, out_type=out_type)
