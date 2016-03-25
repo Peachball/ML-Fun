@@ -49,7 +49,7 @@ def getPage():
 	response = urllib.request.urlopen('http://en.wikipedia.org/wiki/Special:Random')
 	return response.read()
 
-def convertPageToArrays(html=getPage()):
+def convertPageToArrays(html=getPage(), verbose=False):
 	convertedData=[]
 	for char in html:
 		charList = [0]*256
@@ -58,6 +58,8 @@ def convertPageToArrays(html=getPage()):
 	x = np.array(convertedData[:-1])
 	y = np.append(np.array(convertedData[1:]), np.zeros((x.shape[0], 1)), axis=1)
 	y.itemset((y.shape[0]-1, y.shape[1]-1), 1)
+	
+	if verbose: print('Shape' + str(x.shape[0]))
 	return (x, y)
 
 
@@ -251,13 +253,14 @@ class LSTM():
 		verbose = kwargs.get('verbose', False)
 		x = T.matrix('Input')
 		y = T.matrix('Output')
+		init_size = kwargs.get('init_size', 1e-10)
 		self.layers.append(LSTMLayer(dim[0], dim[1], no_compile=True, in_var=x, verbose=False))
 		for i in range(1, len(dim) - 1):
 			self.layers.append(LSTMLayer(dim[i], dim[i+1], no_compile=True, 
-				in_var=self.layers[-1].out))
+				in_var=self.layers[-1].out, init_size=init_size))
 			if i == len(dim)-2:
 				self.layers[-1] = LSTMLayer(dim[i], dim[i+1], no_compile=True,
-						in_var=self.layers[-2].out, out_type=out_type)
+						in_var=self.layers[-2].out, out_type=out_type, init_size=init_size)
 		
 
 		if verbose: 
@@ -305,7 +308,7 @@ class LSTM():
 			#initalize stuff
 			for p in self.params:
 				prevw.append(theano.shared(np.zeros(p.get_value().shape)).astype(config.floatX))
-				deltaw.append(theano.shared(0.1 * np.ones(p.get_value().shape)).astype(config.floatX))
+				deltaw.append(theano.shared(0.1 * init_size * np.ones(p.get_value().shape)).astype(config.floatX))
 				self.summedGradients.append(theano.shared(np.zeros(p.get_value().shape)).astype(config.floatX))
 
 			if verbose: print('Finished with the arbitrary array stuff in background')
@@ -401,9 +404,8 @@ def testLSTM(graphs=True):
 		plt.plot(np.arange(iterations), train_error)
 		plt.show()
 
-testLSTM(graphs=False)
 def wikiLearningTest():
-	x, y = convertPageToArrays()
+	x, y = convertPageToArrays(verbose=True)
 	lstm = LSTM(256, 300, 257, out_type='sigmoid', rprop=True, verbose=True)
 	i = 1
 	iterations = 0
@@ -414,3 +416,5 @@ def wikiLearningTest():
 		train_error.append(lstm.learn(x,y))
 		iterations += 1
 	plt.plot(np.arange(iterations), train_error)
+
+wikiLearningTest()
