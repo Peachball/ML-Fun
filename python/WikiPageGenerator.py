@@ -10,7 +10,7 @@ from theano import config
 import urllib.request
 
 ARRAYMODE=True
-config.floatX='float64'
+config.init_gpu_device = 'gpu'
 
 def createWebpage(lstm, filename, maxChars=10000, array=False):
 	print('Writing to file...')
