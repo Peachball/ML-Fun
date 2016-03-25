@@ -10,7 +10,6 @@ from theano import config
 import urllib.request
 
 ARRAYMODE=True
-config.init_gpu_device = 'gpu'
 
 def createWebpage(lstm, filename, maxChars=10000, array=False):
 	print('Writing to file...')
@@ -154,11 +153,12 @@ class LSTMLayer:
 			z = T.dot(c_tm1 , self.W_co) + T.dot( h_tm1 , self.W_ho) + T.dot(x, self.W_xo) + self.b_o
 			h_t = T.nnet.sigmoid(T.dot(c_tm1, self.W_ch) + T.dot(h_tm1, self.W_hh) + T.dot(x,
 				self.W_xh) + self.b_h)
-			out = z
 			if out_type=='sigmoid':
 				out = T.nnet.sigmoid(z)
 			elif out_type=='linear':
 				out = z
+			elif out_type=='softmax':
+				out = T.nnet.softmax(z)
 
 			c_t = self.C * forget + rem * mem
 			return [z, h_t, c_t]
@@ -258,7 +258,7 @@ class LSTM():
 		self.layers.append(LSTMLayer(dim[0], dim[1], no_compile=True, in_var=x, verbose=False))
 		for i in range(1, len(dim) - 1):
 			self.layers.append(LSTMLayer(dim[i], dim[i+1], no_compile=True, 
-				in_var=self.layers[-1].out, init_size=init_size))
+				in_var=self.layers[-1].out, init_size=init_size, out_type='sigmoid'))
 			if i == len(dim)-2:
 				self.layers[-1] = LSTMLayer(dim[i], dim[i+1], no_compile=True,
 						in_var=self.layers[-2].out, out_type=out_type, init_size=init_size)
@@ -389,6 +389,7 @@ def testLSTM(graphs=True):
 			cell_size=100, verbose=True)
 	print('Testing its prediction function')
 	lstm_test.predict(x)
+	lstm_test.reset()
 	print('Testing learning function')
 	i = 1
 	iterations = 0
@@ -407,15 +408,24 @@ def testLSTM(graphs=True):
 
 def wikiLearningTest():
 	x, y = convertPageToArrays(verbose=True)
-	lstm = LSTM(256, 300, 257, out_type='sigmoid', rprop=True, verbose=True)
+	lstm = LSTM(256, 257, out_type='softmax', rprop=False, verbose=True, alpha=0.001,
+			momentum=0.5)
 	i = 1
 	iterations = 0
 	train_error = []
-	while iterations < 10000:
-		print(lstm.learn(x, y))
-		i = lstm.learn(x, y)
-		train_error.append(lstm.learn(x,y))
-		iterations += 1
+	sizeofset = 1
+	while sizeofset < x.shape[0]:
+		sub_error = 100
+		while sub_error > 1e-2:
+			sub_error = lstm.learn(x[:sizeofset], y[:sizeofset])
+			print(sub_error, sizeofset)
+			if math.isnan(sub_error):
+				print(lstm.predict(x[:sizeofset]))
+				input('??')
+				lstm.reset()
+			train_error.append(sub_error)
+			iterations += 1
+		sizeofset += 1
 	plt.plot(np.arange(iterations), train_error)
 
 wikiLearningTest()
