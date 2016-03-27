@@ -1,3 +1,5 @@
+
+from WikiPageGenerator import LSTM
 import platform
 import numpy as np
 import subprocess as sp
@@ -71,19 +73,24 @@ from pybrain.tools.customxml.networkreader import NetworkReader
 
 INPUTSIZE = 100
 
-def convertFileToDataSet(index, inputsize=100, dataset=None):
+def convertFileToDataSet(index, inputsize=100):
 	filename = 'convertedDataSet/' + str(index) + '.wav'
 	samplerate, data = wavUtil.read(filename)
-	if dataset==None:
-		dataset = SequentialDataSet(inputsize, inputsize)
-	else:
-		dataset.newSequence()
+	dataset = []
+	#Get rid of the early silence parts
+	index1 = 0
+	index2 = -1
+	while data[index1][0] == 0 and data[index1][1] == 0:
+		index1 += 1
+	while data[index2][0] == 0 and data[index2][1] == 0:
+		index2 -= 1
+	data = data[index1:(index2+1)]
 	data = data.flatten()
-	for i in range(int(len(data)/inputsize)):
-		bdata = data[i:(i+inputsize)]
-		dataset.addSample(data[i:(i+inputsize)],
-				(data[(i+inputsize):(i+2*inputsize)]))
-	return dataset
+	data = np.array(data)
+	data.resize(data.shape[0]//100, inputsize)
+	x = data
+	y = data[100:]
+	return x, y
 
 def convertFilesToDataSet(indexs, inputsize=100, dataset=None):
 	if dataset==None:
@@ -92,21 +99,24 @@ def convertFilesToDataSet(indexs, inputsize=100, dataset=None):
 		convertFileToDataSet(i, dataset=ds)
 	return dataset
 
-def generateMusicFile(network, name="test.wav", length=60):
-	pass
+def generateMusicFile(net, name="test.wav", length=10000, noise=1e-9):
+	output = []
+	output.append((np.random.rand(1, 100) - 0.5) * noise)
+	for i in range(length/100):
+		output.append(net.predict(output[-1] + (np.random.rand(1, 100) - 0.5) * noise))
+	
 
 if __name__ == '__main__':
-	try:
-		lstm = NetworkReader.readFrom('musicgennet.xml')
-		print('Loaded existing network')
-	except:
-		lstm = buildNetwork(INPUTSIZE, 10, INPUTSIZE, hiddenclass=LSTMLayer,
-			outclass=LinearLayer)
-		print('Generated new network')
+	x, y = convertFileToDataSet(0)
+	lstm = LSTM(100, 1000, 1000, 1000, 1000, 1000, 100, out_type='linear', rprop=True, verbose=True, alpha=0.01, momentum=0.5)
+	
+	subset = 1
+	s_error = 100
+	sizeofset = 10
+	while True:
+		s_error = 100
+		while s_error > 1:
+			s_error = lstm.learn(x[:sizeofset], y[:sizeofset])
+			print(s_error, sizeofset)
+		sizeofset += 10
 
-	trainer = BackpropTrainer(lstm)
-	for i in range(200):
-		print('Training...')
-		print('Trained one iteration with error:' +
-				str(trainer.trainOnDataset(convertFileToDataSet(i))))
-		NetworkWriter.writeToFile(lstm, 'musicgennet.xml')

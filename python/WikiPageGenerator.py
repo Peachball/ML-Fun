@@ -1,4 +1,5 @@
 from __future__ import print_function
+import pickle
 import math
 from collections import OrderedDict
 import theano.tensor as T
@@ -12,7 +13,7 @@ import urllib.request
 ARRAYMODE=True
 np.random.seed(1234)
 
-def createWebpage(lstm, filename, maxChars=1000, array=True):
+def createWebpage(lstm, filename, maxChars=100000, array=True):
 	lstm.reset()
 	print('Writing to file...')
 	f = open(filename, 'w')
@@ -37,7 +38,8 @@ def createWebpage(lstm, filename, maxChars=1000, array=True):
 			m = int(output[0])
 			f.write(chr(m))
 		chars = chars + 1
-	print('Finished a file')
+		print('\rWrote ' + str(chars) + ' so far', end="")
+	print('\nFinished a file')
 	return
 
 #get Wiki pages
@@ -276,7 +278,7 @@ class LSTM():
 		self.predict = theano.function([x], prediction, updates=layerUpdates)
 
 		if verbose:
-			print('defining error')
+			print('Defining error')
 		#Define Error
 		if out_type=='sigmoid':
 			self.error = -T.mean((y)*T.log(T.clip(prediction, 1e-9, 1-1e-9)) +
@@ -356,12 +358,17 @@ class LSTM():
 		else:
 			self.mparams = []
 			self.gradients = []
+			i_g = 0
 			for p in self.params:
 				self.gradients.append(T.grad(self.error, p))
 				self.mparams.append(theano.shared(np.zeros(p.get_value().shape), name='momentum bs'))
+				if verbose: print('\rGradient ' + str(i_g+1) + '/' + str(len(self.params)), end='')
+				i_g += 1
+			if verbose: print('\nGradients done')
 			gradUpdates = OrderedDict((p, p - g) for p, g in zip(self.params, self.mparams))
 			gradUpdates.update(OrderedDict((m, self.momentum * m + self.alpha * g) for m, g in
 				zip(self.mparams, self.gradients)))
+			if verbose: print('Updates Done. Compiling function')
 			self.learn = theano.function([x, y], self.error, updates=gradUpdates)
 		
 		if verbose:
@@ -375,6 +382,13 @@ class LSTM():
 		for l in self.layers:
 			l.reset()
 		return
+
+	def writeToFile(lstm, filename):
+		pickle.dump(lstm, open(filename, 'wb'))
+
+	def loadFromFile(filename):
+		lstm = pickle.load(open(filename, 'rb'))
+		return lstm
 
 	
 def testLSTM(graphs=True):
@@ -413,7 +427,6 @@ def wikiLearningTest():
 	x, y = convertPageToArrays(verbose=True)
 	lstm = LSTM(256, 300, 257, out_type='sigmoid', rprop=True, verbose=True, alpha=0.001,
 			momentum=0.5)
-	createWebpage(lstm, 'init.html')
 	lstm.reset()
 	i = 1
 	iterations = 0
@@ -430,8 +443,12 @@ def wikiLearningTest():
 				lstm.reset()
 			train_error.append(sub_error)
 			iterations += 1
+			if iterations % 100 == 0:
+				print('Creating webpage')
+				createWebpage(lstm, 'init.html')
 		sizeofset += 1
 	plt.plot(np.arange(iterations), train_error)
 
 
-wikiLearningTest()
+if __name__ == '__main__':
+	wikiLearningTest()
