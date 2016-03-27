@@ -10,8 +10,10 @@ from theano import config
 import urllib.request
 
 ARRAYMODE=True
+np.random.seed(1234)
 
-def createWebpage(lstm, filename, maxChars=10000, array=False):
+def createWebpage(lstm, filename, maxChars=1000, array=True):
+	lstm.reset()
 	print('Writing to file...')
 	f = open(filename, 'w')
 	status = 0
@@ -24,18 +26,13 @@ def createWebpage(lstm, filename, maxChars=10000, array=False):
 			dinput[curChar] = 1
 		else:
 			dinput = curChar
-		output = lstm.activate(dinput)
-		if output[-1] < 0.5: status = 0
+		output = lstm.predict(np.expand_dims(np.array(dinput), axis=0))
+		if output[0][-1] < 0.5: status = 0
 		else: status = 1
 
 		if array:
-			m = max(output)
-			char = [i for i, j in enumerate(output) if j == m]
-			try:
-				curChar = char[0]
-				f.write(chr(curChar))
-			except ValueError:
-				pass
+			curChar = np.argmax(output)
+			f.write(chr(curChar))
 		else:
 			m = int(output[0])
 			f.write(chr(m))
@@ -282,7 +279,8 @@ class LSTM():
 			print('defining error')
 		#Define Error
 		if out_type=='sigmoid':
-			self.error = -T.mean((y)*T.log(prediction) + (1-y)*T.log(1-prediction))
+			self.error = -T.mean((y)*T.log(T.clip(prediction, 1e-9, 1-1e-9)) +
+					(1-y)*T.log(1-T.clip(prediction, 1e-9, 1-1e-9)))
 		elif out_type=='linear':
 			self.error = T.mean(T.sqr(y - prediction))
 		
@@ -369,9 +367,14 @@ class LSTM():
 		if verbose:
 			print('Finished initalization')
 
-		def resetGrad():
-			for sumGrad in self.summedGradients:
-				sumGrad.set_value(np.zeros(sumGrad.shape))
+	def resetGrad(self):
+		for sumGrad in self.summedGradients:
+			sumGrad.set_value(np.zeros(sumGrad.shape))
+
+	def reset(self):
+		for l in self.layers:
+			l.reset()
+		return
 
 	
 def testLSTM(graphs=True):
@@ -408,15 +411,17 @@ def testLSTM(graphs=True):
 
 def wikiLearningTest():
 	x, y = convertPageToArrays(verbose=True)
-	lstm = LSTM(256, 257, out_type='softmax', rprop=False, verbose=True, alpha=0.001,
+	lstm = LSTM(256, 300, 257, out_type='sigmoid', rprop=True, verbose=True, alpha=0.001,
 			momentum=0.5)
+	createWebpage(lstm, 'init.html')
+	lstm.reset()
 	i = 1
 	iterations = 0
 	train_error = []
 	sizeofset = 1
 	while sizeofset < x.shape[0]:
 		sub_error = 100
-		while sub_error > 1e-2:
+		while sub_error > 1e-1:
 			sub_error = lstm.learn(x[:sizeofset], y[:sizeofset])
 			print(sub_error, sizeofset)
 			if math.isnan(sub_error):
@@ -427,5 +432,6 @@ def wikiLearningTest():
 			iterations += 1
 		sizeofset += 1
 	plt.plot(np.arange(iterations), train_error)
+
 
 wikiLearningTest()
