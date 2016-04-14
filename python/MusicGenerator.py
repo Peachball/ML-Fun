@@ -61,16 +61,6 @@ def repair():
 	miss = checkCompletion()
 	downloadVideo(miss)
 
-#Begin machine learning part
-from pybrain.datasets import SequentialDataSet
-from pybrain.tools.shortcuts import buildNetwork
-from pybrain.structure.modules import LSTMLayer
-from pybrain.structure.modules import LinearLayer
-from pybrain.supervised.trainers import BackpropTrainer
-import scipy.io.wavfile as wavUtil
-from pybrain.tools.customxml.networkwriter import NetworkWriter
-from pybrain.tools.customxml.networkreader import NetworkReader
-
 INPUTSIZE = 100
 
 def convertFileToDataSet(index, inputsize=100):
