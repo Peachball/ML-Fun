@@ -251,16 +251,19 @@ class LSTM():
 		self.layers = []
 		verbose = kwargs.get('verbose', False)
 		init_size = kwargs.get('init_size', 0.01)
+		cell_size = kwargs.get('cell_size', [None])
 		x = T.matrix('Input')
 		y = T.matrix('Output')
-		init_size = kwargs.get('init_size', 1e-10)
-		self.layers.append(LSTMLayer(dim[0], dim[1], no_compile=True, in_var=x, verbose=False))
+		self.layers.append(LSTMLayer(dim[0], dim[1], no_compile=True, in_var=x, verbose=False,
+			cell_size=cell_size[0]))
 		for i in range(1, len(dim) - 1):
 			self.layers.append(LSTMLayer(dim[i], dim[i+1], no_compile=True, 
-				in_var=self.layers[-1].out, init_size=init_size, out_type='sigmoid'))
+				in_var=self.layers[-1].out, init_size=init_size, out_type='sigmoid',
+				cell_size=cell_size[i % len(cell_size)]))
 			if i == len(dim)-2:
 				self.layers[-1] = LSTMLayer(dim[i], dim[i+1], no_compile=True,
-						in_var=self.layers[-2].out, out_type=out_type, init_size=init_size)
+						in_var=self.layers[-2].out, out_type=out_type, init_size=init_size,
+						cell_size=cell_size[i % len(cell_size)])
 		
 
 		if verbose: 
@@ -445,7 +448,7 @@ def wikiLearningTest():
 			iterations += 1
 			if iterations % 100 == 0:
 				print('Creating webpage')
-				createWebpage(lstm, 'init.html')
+				createWebpage(lstm, 'init.html', maxchars=10000)
 		sizeofset += 1
 	plt.plot(np.arange(iterations), train_error)
 

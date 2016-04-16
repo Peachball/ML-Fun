@@ -4,3 +4,5 @@
 *.nn
 /python/musicDataSet/
 /python/convertedDataSet/
+/python/convertedDataSet
+*.pyc

@@ -13,6 +13,14 @@ import collections
 theano.config.floatX = 'float64'
 np.random.seed(1233)
 
+
+def generateMomentumUpdates(params, momentum, alpha):
+    mparams = [theano.shared(np.zeros(g.eval().shape)).astype(config.floatX) for g in grad]
+    gradUpdates = OrderedDict((p, p - g) for p, g in zip(self.params, self.mparams))
+
+    gradUpdates.update(OrderedDict((m, self.momentum * m + self.alpha * g) for m, g in
+        zip(mparams, grad)))
+    return (gradUpdates, mparams)
 class FFNet:
     def __init__(self, *dim, **kwargs):
         self.in_size = dim[0]
@@ -150,6 +158,16 @@ class FFNet:
         if plot:
             plt.plot(it, err)
             plt.show()
+
+class AutoEncoder:
+    def __init__(*dim, **kwargs):
+        alpha = kwargs.get('alpha', 0.01)
+        momentum = kwargs.get('momentum', 0)
+
+
+class RBM:
+    def __init__(*dim, **kwargs):
+        pass
 
 def readMNISTData(length=10000):
     images = open('../train-images.idx3-ubyte', 'rb')

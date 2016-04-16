@@ -107,16 +107,16 @@ def generateMusicFile(net, name="test.wav", length=10000, noise=1e-9):
 	
 
 if __name__ == '__main__':
-	x, y = convertFileToDataSet(0)
-	lstm = LSTM(100, 1000, 1000, 1000, 1000, 1000, 100, out_type='linear', rprop=True, verbose=True, alpha=0.01, momentum=0.5)
+	x, y = convertFileToDataSet(0, inputsize=1000)
+	lstm = LSTM(1000, 1000, 1000, out_type='linear', rprop=True, verbose=True, alpha=0.01, momentum=0.5,
+			init_size=10, cell_size=[None])
 	
 	subset = 1
 	s_error = 100
-	sizeofset = 10
+	sizeofset = 1000#y.shape[0]
 	while True:
-		s_error = 100
-		while s_error > 1:
+		s_error = 1e9
+		while s_error > 1000:
 			s_error = lstm.learn(x[:sizeofset], y[:sizeofset])
 			print(s_error, sizeofset)
-		sizeofset += 10
 
