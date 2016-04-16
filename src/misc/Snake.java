@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 import Jama.Matrix;
+import NN.NeuralNetwork;
 import evolutionary.NEAT;
 import evolutionary.NEAT.Genome;
 import evolutionary.NEAT.NEATException;
@@ -23,6 +24,7 @@ public class Snake {
 	 * @throws NEATException
 	 */
 	public static void main(String[] args) throws NEATException, IOException {
+		QLearning();
 		int boardX, boardY;
 		boardX = boardY = 10;
 		int numOfTrials = boardX * boardY;
@@ -40,7 +42,7 @@ public class Snake {
 			System.out.println("Created new NEAT");
 		}
 
-		switch (2) {
+		switch (4) {
 		case 1:
 			// Play top
 			Genome g = ne.getTop();
@@ -72,17 +74,17 @@ public class Snake {
 			board[0][0] = 1;
 			int dir = 1;
 			addApple(board);
-			while(status >= 0){
-				if(StdDraw.isKeyPressed(87))
+			while (status >= 0) {
+				if (StdDraw.isKeyPressed(87))
 					dir = 1;
-				if(StdDraw.isKeyPressed(68))
+				if (StdDraw.isKeyPressed(68))
 					dir = 2;
-				if(StdDraw.isKeyPressed(83))
+				if (StdDraw.isKeyPressed(83))
 					dir = 3;
-				if(StdDraw.isKeyPressed(65))
+				if (StdDraw.isKeyPressed(65))
 					dir = 4;
 				status = nextIteration(board, dir);
-				if(status > 0){
+				if (status > 0) {
 					addApple(board);
 				}
 				StdDraw.clear();
@@ -90,7 +92,127 @@ public class Snake {
 				StdDraw.show(100);
 			}
 			break;
+		case 4:
+			QLearning();
+			break;
 		}
+	}
+
+	/**
+	 * Assumes only one example
+	 * 
+	 * @param board
+	 * @param theta
+	 * @param temperature
+	 * @return
+	 */
+	private static int predict(Matrix board, Matrix[] theta, double temperature) {
+		Matrix output = NeuralNetwork.predict(board, theta, 2);
+		double total = 0;
+		for (int i = 0; i < output.getColumnDimension(); i++) {
+			total += Math.pow(Math.E, output.get(0, i));
+		}
+		double rand = Math.random();
+		double buffer = 0;
+		int direction = 3;
+		for (int i = 0; i < 4; i++) {
+			if (rand < buffer + Math.pow(Math.E, output.get(0, i) / temperature) / total) {
+				direction = i;
+				break;
+			}
+			buffer += Math.pow(Math.E, output.get(0, i) / temperature) / total;
+		}
+		return direction;
+	}
+
+	public static void QLearning() throws IOException {
+		int boardSize = 5;
+		Matrix[] q = new Matrix[2];
+		q[0] = Matrix.random(boardSize * boardSize * 2 + 1, 500).times(0.1);
+//		q[1] = Matrix.random(501, 300).times(0.001);
+		q[1] = Matrix.random(501, 4).times(0.1);
+
+		// Test if the predict thing still works
+		int[][] board = new int[boardSize][boardSize];
+		board[0][0] = 1;
+		addApple(board);
+		int status = 0;
+		double temperature = 1;
+		double lam = 1;
+		int iteration = 0;
+		int totalPoints = 0;
+		int maxScore = 0;
+		double alpha = 0.00001;
+		while (true) {
+			int moveCount = 0;
+			while (status >= 0 && moveCount < boardSize * boardSize / 2) {
+				Matrix converted = sketchConvert(board);
+				int move = predict(converted, q, temperature) + 1;
+				status = nextIteration(board, move);
+				Matrix nextBoard = sketchConvert(board);
+				/*
+				StdDraw.clear();
+				display(board);
+				StdDraw.show(25);
+				*/
+
+				double reward = 0;
+				if (status > 0) {
+					addApple(board);
+					reward = 1;
+					moveCount = 0;
+				}
+				if (status < 0){
+					reward = -1;
+				}
+				moveCount++;
+				// Update Q function
+				Matrix correct = new Matrix(1, 4);
+				double argmax = 0;
+				Matrix nextQ = NeuralNetwork.predict(nextBoard, q, 2);
+				Matrix curQ = NeuralNetwork.predict(converted, q, 2);
+				for (int j = 0; j < 4; j++) {
+					double r = nextQ.get(0, j);
+					if (r > argmax)
+						argmax = r;
+					correct.set(0, j, curQ.get(0, j));
+				}
+				correct.set(0, move - 1, lam * argmax + reward);
+				q = NeuralNetwork.trainNN(converted, q, correct, alpha, 0, 10);
+				double error = NeuralNetwork.J(converted,  q, correct, 0);
+				if(Double.isNaN(error)){
+					System.out.println("ggwp");
+				}
+//				System.out.println("Error: " + error);
+				alpha *= 0.995;
+				temperature *= 0.9999;
+			}
+			iteration++;
+			totalPoints += evalPoints(board);
+			if(evalPoints(board) > maxScore){
+				maxScore = evalPoints(board);
+				System.out.println("Max Score: " + maxScore);
+				System.out.println("Iteration Number: " + iteration);
+				System.out.println("Alpha: " + alpha);
+				System.out.println("Temperature: " + temperature);
+			}
+			board = new int[boardSize][boardSize];
+			board[0][0] = 1;
+			addApple(board);
+			status = 0;
+		}
+	}
+	
+	public static int evalPoints(int[][] board){
+		int points = 0;
+		for(int i = 0; i < board.length; i++){
+			for(int j = 0; j < board[0].length; j++){
+				if(points < board[i][j]){
+					points = board[i][j];
+				}
+			}
+		}
+		return points;
 	}
 
 	public static double F(Genome theta, int x, int y, boolean display, int speed, int trials) {
@@ -178,7 +300,7 @@ public class Snake {
 		}
 		int xSize = board.length;
 		int ySize = board[0].length;
-		if(dir < 1 || dir > 4)
+		if (dir < 1 || dir > 4)
 			System.out.println("error");
 		switch (dir) {
 		case 1:
@@ -257,7 +379,7 @@ public class Snake {
 		for (int i = 0; i < board.length; i++) {
 			for (int j = 0; j < board[i].length; j++) {
 				if (board[i][j] > 0)
-					m.set(3 * (i * board[i].length + j), 0, 1);
+					m.set(3 * (i * board[i].length + j), 0, board[i][j]);
 				if (board[i][j] == -1)
 					m.set(3 * (i * board[i].length + j) + 1, 0, 1);
 				if (board[i][j] > maxSize) {
@@ -271,46 +393,51 @@ public class Snake {
 		m.set(3 * board.length * board[0].length, 0, 1);
 		return m.transpose();
 	}
-	
-	private static Matrix superSketchConvert(int[][] board){
-		Matrix X = new Matrix(board.length* board[0].length + 1, 1);
-		for(int i = 0; i < board.length; i++){
-			for(int j = 0; j < board[0].length ; j++){
-				if(board[i][j] > 0)
-				X.set(i * board[i].length + j, 0 , 1);
-				if(board[i][j] < 0)
-				X.set(i * board[i].length + j, 0 , -1);
+
+	private static Matrix superSketchConvert(int[][] board) {
+		Matrix X = new Matrix(board.length * board[0].length + 1, 1);
+		for (int i = 0; i < board.length; i++) {
+			for (int j = 0; j < board[0].length; j++) {
+				if (board[i][j] > 0)
+					X.set(i * board[i].length + j, 0, 1);
+				if (board[i][j] < 0)
+					X.set(i * board[i].length + j, 0, -1);
 			}
 		}
 		X.set(board.length * board[0].length, 0, 1);
 		return X.transpose();
 	}
-	
-	private static Matrix sketchConvert(int[][] board){
-		Matrix X = new Matrix(board.length * board[0].length, 1);
+
+	private static Matrix sketchConvert(int[][] board) {
+		Matrix X = new Matrix(board.length * board[0].length * 2, 1);
 		int xHead = 0;
 		int yHead = 0;
 		int length = 0;
-		for(int i = 0; i < board.length ; i++){
-			for(int j = 0; j < board[0].length; j++){
-				if(board[i][j] > length){
+		for (int i = 0; i < board.length; i++) {
+			for (int j = 0; j < board[0].length; j++) {
+				if (board[i][j] > length) {
 					xHead = i;
 					yHead = j;
 					length = board[i][j];
 				}
 			}
 		}
-		for(int i = 0; i < board.length ; i++){
-			for(int j = 0; j < board[0].length; j++){
+		for (int i = 0; i < board.length; i++) {
+			for (int j = 0; j < board[0].length; j++) {
 				int xpo = i - xHead;
 				int ypo = j - yHead;
-				if( i - xHead < 0){
+				if (i - xHead < 0) {
 					xpo = i - xHead + board.length;
 				}
-				if( j - yHead < 0){
+				if (j - yHead < 0) {
 					ypo = j - yHead + board[0].length;
 				}
-				X.set(xpo * board[0].length + ypo, 0 , board[i][j]);
+				if(board[i][j] > 0){
+					X.set(2 * (xpo * board[0].length + ypo), 0, board[i][j]);
+				}
+				else if(board[i][j] < 0){
+					X.set(2*(xpo * board[0].length + ypo) + 1, 0, board[i][j]);
+				}
 			}
 		}
 		return X.transpose();
@@ -325,7 +452,7 @@ public class Snake {
 				if (board[i][j] > 0) {
 					StdDraw.setPenColor(Color.BLACK);
 					StdDraw.filledRectangle((i + 0.5) / xSize, (j + 0.5) / ySize, 0.5 / xSize, 0.5 / ySize);
-				} 
+				}
 				if (board[i][j] < 0) {
 					StdDraw.setPenColor(Color.RED);
 					StdDraw.filledRectangle((i + 0.5) / xSize, (j + 0.5) / ySize, 0.5 / xSize, 0.5 / ySize);

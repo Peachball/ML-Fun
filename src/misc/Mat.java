@@ -16,6 +16,22 @@ public class Mat {
 		}
 		return a;
 	}
+	
+	private static double clip(double d, double low, double high){
+		d = Math.max(d, low);
+		d = Math.min(d, high);
+		return d;
+	}
+	
+	public static Matrix clip(Matrix x, double low, double high){
+		Matrix y = new Matrix(x.getRowDimension(), x.getColumnDimension());
+		for(int i = 0; i < x.getRowDimension(); i++){
+			for(int j = 0; j < x.getColumnDimension(); j++){
+				y.set(i, j, clip(x.get(i,j), low, high));
+			}
+		}
+		return y;
+	}
 
 	public static Matrix ones(int rows, int columns) {
 		Matrix m = new Matrix(rows, columns);

@@ -77,15 +77,21 @@ public class NeuralNetwork {
 		}
 		return grad;
 	}
+	
 
 	public static double J(final Matrix X, final Matrix[] theta, final Matrix y, final double lambda) {
 		double m = X.getRowDimension();
 		double j = 0;
 		Matrix p = predict(X, theta, 1);
+		p = Mat.clip(p, 0.001, 0.999);
 		for (int i = 0; i < p.getRowDimension(); i++) {
 			for (int k = 0; k < p.getColumnDimension(); k++) {
+				/*Cross Entropy
 				double delta = (-y.get(i, k) * Math.log(p.get(i, k)) - (1 - y.get(i, k)) * Math.log(1 - p.get(i, k)))
 						/ m;
+				 */
+				//Linear
+				double delta = Math.pow(y.get(i, k) - p.get(i, k), 2) / m;
 				j += delta;
 				if (Double.isNaN(delta)) {
 					return Double.NaN;
@@ -111,7 +117,6 @@ public class NeuralNetwork {
 			for (int j = 0; j < grad.length; j++) {
 				theta[j] = theta[j].minus(grad[j].times(alpha));
 			}
-			System.out.println(J(X, theta, y, lambda));
 		}
 		return theta;
 	}
